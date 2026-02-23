@@ -1,0 +1,11 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "uvicorn app.main:app --reload --port 8000",
+    "build": "python3 -m compileall app",
+    "lint": "python3 -m compileall app",
+    "typecheck": "python3 -m py_compile app/main.py"
+  }
+}
