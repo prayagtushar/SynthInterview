@@ -16,6 +16,11 @@
   "devDependencies": {
     "prettier": "^3.8.1",
     "turbo": "^2.8.10",
-    "typescript": "5.9.2"
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.1"
   }
 }
