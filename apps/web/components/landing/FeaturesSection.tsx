@@ -12,8 +12,8 @@ const FEATURES = [
 	{
 		icon: '🎨',
 		iconClass: 'feature-icon-gold',
-		title: 'Instant Comic Panels',
-		desc: 'Every scene becomes a vibrant, hand-crafted comic panel rendered by state-of-the-art image generation. No drawing skills needed.',
+		title: 'Instant Interview Panels',
+		desc: 'Every scene becomes a vibrant, hand-crafted interview panel rendered by state-of-the-art image generation. No drawing skills needed.',
 	},
 	{
 		icon: '💬',
@@ -25,7 +25,7 @@ const FEATURES = [
 		icon: '🚀',
 		iconClass: 'feature-icon-purple',
 		title: 'One-Click Export',
-		desc: 'Download your comic as high-resolution images, a scrollable web comic, or a print-ready PDF — all in a single click.',
+		desc: 'Download your interview as high-resolution images, a scrollable web experience, or a print-ready PDF — all in a single click.',
 	},
 ];
 
@@ -62,8 +62,8 @@ export default function FeaturesSection() {
 						in seconds.
 					</h2>
 					<p className='features-subtitle'>
-						Comic It uses cutting-edge AI to transform your text into
-						professional-quality comic strips — with intelligent paneling,
+						SynthInterview uses cutting-edge AI to transform your text into
+						professional-quality interview panels — with intelligent paneling,
 						vibrant artwork, and cinematic storytelling.
 					</p>
 				</div>
@@ -89,7 +89,7 @@ export default function FeaturesSection() {
 					</h3>
 					<p className='cta-banner-desc'>
 						Join thousands of creators who are turning their ideas, fan fiction,
-						and scripts into beautiful comics — no artistic talent required.
+						and scripts into beautiful interviews — no artistic talent required.
 					</p>
 					<button className='hero-cta hero-cta-primary'>
 						Get Started Free
@@ -119,7 +119,7 @@ export default function FeaturesSection() {
 						href='https://github.com/prayagtushar'
 						target='_blank'
 						rel='noopener noreferrer'>
-						Comic It
+						SynthInterview
 					</a>
 				</p>
 			</footer>

@@ -1,11 +1,11 @@
-# Comic It Monorepo
+# SynthInterview Monorepo
 
-Monorepo for Comic It with a synchronized frontend and backend.
+Monorepo for SynthInterview with a synchronized frontend and backend.
 
 ## Architecture
 
 ```text
-comic-it/
+synth-interview/
 ├── apps/
 │   ├── web/                # Next.js + Tailwind (Frontend)
 │   └── api/                # Python FastAPI (AI orchestrator)

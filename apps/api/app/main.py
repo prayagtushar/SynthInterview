@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Comic It API", version="0.1.0")
+app = FastAPI(title="SynthInterview API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,7 +20,7 @@ async def health() -> dict[str, str]:
 @app.websocket("/ws/live")
 async def live_socket(websocket: WebSocket) -> None:
     await websocket.accept()
-    await websocket.send_json({"type": "connected", "service": "comic-it-api"})
+    await websocket.send_json({"type": "connected", "service": "synth-interview-api"})
     try:
         while True:
             message = await websocket.receive_text()
