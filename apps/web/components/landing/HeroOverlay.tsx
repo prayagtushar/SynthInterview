@@ -26,13 +26,13 @@ export default function HeroOverlay() {
 			<div className='hero-content'>
 				<span className='hero-badge'>
 					<span className='hero-badge-dot' />
-					AI-Powered Comic Creation
+					AI-Powered Interview Experience
 				</span>
 
-				<h1 className='hero-title'>Comic It</h1>
+				<h1 className='hero-title'>SynthInterview</h1>
 
 				<p className='hero-tagline'>
-					Turn any story into a stunning comic — powered by AI magic that
+					Turn any story into a stunning interview — powered by AI magic that
 					transforms text into vibrant, panel-by-panel artwork.
 				</p>
 
