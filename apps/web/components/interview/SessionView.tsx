@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { useInterview } from '../../lib/useInterview';
 import {
@@ -18,7 +19,10 @@ import {
 } from 'lucide-react';
 
 export default function SessionView() {
-	const { isConnected, feedback, connect, disconnect } = useInterview();
+	const searchParams = useSearchParams();
+	const sessionId = useMemo(() => searchParams.get('id') || 'default-session', [searchParams]);
+	
+	const { isConnected, feedback, connect, disconnect, sendEvent } = useInterview(sessionId);
 	const [isMuted, setIsMuted] = useState(false);
 	const [isVideoOff, setIsVideoOff] = useState(false);
 	const [code, setCode] = useState(`// Welcome to your SynthInterview session.
