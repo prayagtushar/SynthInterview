@@ -9,7 +9,8 @@ class AudioProcessor extends AudioWorkletProcessor {
     if (input && input.length > 0) {
       const channelData = input[0];
       for (let i = 0; i < channelData.length; i++) {
-        this.buffer[this.offset++] = Math.max(-1, Math.min(1, channelData[i])) * 0x7fff;
+        this.buffer[this.offset++] =
+          Math.max(-1, Math.min(1, channelData[i])) * 0x7fff;
         if (this.offset >= this.buffer.length) {
           this.port.postMessage(this.buffer.buffer.slice(0));
           this.offset = 0;
@@ -20,4 +21,4 @@ class AudioProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor('audio-processor', AudioProcessor);
+registerProcessor("audio-processor", AudioProcessor);
