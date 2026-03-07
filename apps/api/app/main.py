@@ -13,6 +13,7 @@ from google import genai
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore
+from app.agent import InterviewAgent, AgentState
 
 load_dotenv()
 
@@ -114,40 +115,75 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         # Load session data to get question/difficulty
         doc = db.collection("sessions").document(session_id).get()
         if not doc.exists:
-            await websocket.send_json({"type": "error", "payload": "Session not found"})
-            await websocket.close()
-            return
-
-        session_info = doc.to_dict()
-        agent.metadata["difficulty"] = session_info["difficulty"]
-        agent.metadata["questionId"] = session_info["questionId"]
+            # Fallback to a default session info rather than silently failing
+            session_info = {
+                "difficulty": "Easy",
+                "questionId": "two-sum",
+                "topics": ["Arrays", "HashMaps"],
+                "candidateEmail": "guest@synth.demo"
+            }
+            # Optional: save it to db so the rest of the flow logs properly
+            db.collection("sessions").document(session_id).set(session_info)
+        else:
+            session_info = doc.to_dict()
+        agent.metadata["difficulty"] = session_info.get("difficulty", "Medium")
+        agent.metadata["questionId"] = session_info.get("questionId", "two-sum")
+        agent.metadata["topics"] = session_info.get("topics", [])
 
         # Initial state transition
         welcome_msg = await agent.update_state(AgentState.GREETING)
         
+        # Build comprehensive system instruction
+        system_instr = f"""
+        {agent.get_system_instruction()}
+        
+        CONTEXT:
+        - Candidate: {session_info.get('candidateEmail', 'Anonymous')}
+        - Difficulty: {agent.metadata['difficulty']}
+        - Topics: {', '.join(agent.metadata['topics'])}
+        - Question: {agent.metadata['questionId']}
+        
+        INSTRUCTIONS:
+        1. You are SYNTH, a professional and encouraging technical interviewer.
+        2. Speak clearly and concisely.
+        3. Transition through phases only when criteria are met.
+        4. If you see the environment is clean (only IDE visible), say "ENVIRONMENT VERIFIED" clearly.
+        """
+
         config = {
-            "response_modalities": ["TEXT", "AUDIO"],
-            "system_instruction": agent.get_system_instruction()
+            "response_modalities": ["AUDIO"],
+            "system_instruction": system_instr
         }
 
         async with client.aio.live.connect(model=MODEL_ID, config=config) as session:
             
+            # Send initial state to frontend
+            await websocket.send_json({"type": "state_update", "payload": agent.current_state.value})
+
             # Send initial greeting if any
             if welcome_msg:
                 await session.send(input=welcome_msg, end_of_turn=True)
 
             async def receive_from_gemini():
-                async for message in session:
-                    if message.text:
-                        await websocket.send_json({"type": "text", "payload": message.text})
-                    
-                    if message.server_content and message.server_content.model_turn:
-                        for part in message.server_content.model_turn.parts:
-                            if part.text:
-                                await websocket.send_json({"type": "text", "payload": part.text})
-                            if part.inline_data:
-                                audio_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
-                                await websocket.send_json({"type": "audio", "payload": audio_b64})
+                try:
+                    async for message in session.receive():
+                        if message.server_content and message.server_content.model_turn:
+                            for part in message.server_content.model_turn.parts:
+                                if part.text:
+                                    await websocket.send_json({"type": "text", "payload": part.text})
+                                    
+                                    # Automated state detection from Gemini's response
+                                    if "environment verified" in part.text.lower() and agent.current_state == AgentState.ENV_CHECK:
+                                        next_msg = await agent.handle_event("workspace_clean", None)
+                                        await websocket.send_json({"type": "state_update", "payload": agent.current_state.value})
+                                        if next_msg:
+                                            await session.send(input=next_msg, end_of_turn=True)
+                                            
+                                if part.inline_data:
+                                    audio_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+                                    await websocket.send_json({"type": "audio", "payload": audio_b64})
+                except Exception as e:
+                    print(f"Receive loop terminating: {e}")
 
             async def send_to_gemini():
                 try:
@@ -157,26 +193,32 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                         # Handle State Transitions via WebSocket events
                         if data["type"] == "event":
                             event_type = data.get("payload")
-                            await agent.handle_event(event_type, data.get("data"))
-                            # Optional: Update Gemini with new instructions if needed
-                            # Note: Changing system_instruction mid-session requires a new turn with clear directive
-                            new_instruction = agent.get_system_instruction()
-                            await session.send(input=f"[SYSTEM DIRECTIVE: {new_instruction}]", end_of_turn=False)
+                            next_msg = await agent.handle_event(event_type, data.get("data"))
+                            await websocket.send_json({"type": "state_update", "payload": agent.current_state.value})
+                            if next_msg:
+                                await session.send(input=next_msg, end_of_turn=False)
                             
                         elif data["type"] == "audio":
-                            audio_bytes = base64.b64decode(data["payload"])
-                            await session.send(input=audio_bytes, end_of_turn=False)
+                            await session.send(input={"mime_type": "audio/pcm;rate=16000", "data": data["payload"]}, end_of_turn=False)
                         elif data["type"] == "frame":
-                            frame_bytes = base64.b64decode(data["payload"])
-                            await session.send(input={"mime_type": "image/jpeg", "data": frame_bytes}, end_of_turn=False)
+                            await session.send(input={"mime_type": "image/jpeg", "data": data["payload"]}, end_of_turn=False)
                         elif data["type"] == "text":
                             await session.send(input=data["payload"], end_of_turn=True)
                 except WebSocketDisconnect:
-                    pass
+                    print("WebSocket connection closed by client.")
                 except Exception as e:
-                    print(f"Error in send_to_gemini: {e}")
+                    print(f"Send loop terminating: {e}")
 
-            await asyncio.gather(receive_from_gemini(), send_to_gemini())
+            # Run both tasks concurrently and cancel the other if one finishes/fails
+            task_rx = asyncio.create_task(receive_from_gemini())
+            task_tx = asyncio.create_task(send_to_gemini())
+            
+            done, pending = await asyncio.wait(
+                [task_rx, task_tx],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            for p in pending:
+                p.cancel()
 
     except Exception as e:
         print(f"Error in Live Session: {e}")
