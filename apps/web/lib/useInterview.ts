@@ -1,134 +1,155 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-export function useInterview(sessionId: string = "default-session") {
-  const [isConnected, setIsConnected] = useState(false);
-  const [feedback, setFeedback] = useState<string[]>([]);
-  const socketRef = useRef<WebSocket | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
+export function useInterview(sessionId: string = 'default-session') {
+	const [isConnected, setIsConnected] = useState(false);
+	const [feedback, setFeedback] = useState<string[]>([]);
+	const [currentState, setCurrentState] = useState<string>('IDLE');
+	const socketRef = useRef<WebSocket | null>(null);
+	const mediaStreamRef = useRef<MediaStream | null>(null);
+	const screenStreamRef = useRef<MediaStream | null>(null);
+	const audioContextRef = useRef<AudioContext | null>(null);
+	const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const sendEvent = useCallback((type: string, payload?: any) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(
-        JSON.stringify({ type: "event", payload: type, data: payload }),
-      );
-    }
-  }, []);
+	const sendEvent = useCallback((type: string, payload?: any) => {
+		if (socketRef.current?.readyState === WebSocket.OPEN) {
+			socketRef.current.send(
+				JSON.stringify({ type: 'event', payload: type, data: payload }),
+			);
+		}
+	}, []);
 
-  const connect = useCallback(() => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/live/${sessionId}`);
-    ws.onopen = () => {
-      setIsConnected(true);
-      sendEvent("candidate_connect");
-      startStreaming();
-    };
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "text") {
-        setFeedback((prev) => [...prev, data.payload]);
-      }
-    };
-    ws.onclose = () => setIsConnected(false);
-    ws.onerror = (err) => console.error("WebSocket Error:", err);
-    socketRef.current = ws;
-  }, [sessionId, sendEvent]);
+	const startStreaming = async () => {
+		try {
+			// Capture Microphone (16kHz mono as required by Gemini Live)
+			const audioStream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					sampleRate: 16000,
+					channelCount: 1,
+					echoCancellation: true,
+					noiseSuppression: true,
+				},
+			});
+			mediaStreamRef.current = audioStream;
 
-  const startStreaming = async () => {
-    try {
-      // Capture Microphone (16kHz mono as required by Gemini Live)
-      const audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-      mediaStreamRef.current = audioStream;
-      setupAudioProcessing(audioStream);
+			// Capture Screen (Low frame rate to save bandwidth)
+			const screenStream = await navigator.mediaDevices.getDisplayMedia({
+				video: { frameRate: 5 },
+				audio: false,
+			});
+			screenStreamRef.current = screenStream;
 
-      // Capture Screen (Low frame rate to save bandwidth)
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 5 },
-        audio: false,
-      });
-      screenStreamRef.current = screenStream;
-      setupScreenProcessing(screenStream);
+			return true;
+		} catch (error) {
+			console.error('Error starting media streams:', error);
+			return false;
+		}
+	};
 
-      // Trigger screen share active event
-      sendEvent("screen_share_active");
-    } catch (error) {
-      console.error("Error starting media streams:", error);
-    }
-  };
+	const connect = useCallback(async () => {
+		// Request streams first to preserve the user gesture (Fix for NotAllowedError)
+		const streamsStarted = await startStreaming();
+		if (!streamsStarted) {
+			alert('Failed to access microphone or screen. Please check permissions.');
+			return;
+		}
 
-  const setupAudioProcessing = (stream: MediaStream) => {
-    const audioContext = new AudioContext({ sampleRate: 16000 });
-    audioContextRef.current = audioContext;
-    const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+		const ws = new WebSocket(`ws://localhost:8000/ws/live/${sessionId}`);
+		ws.onopen = () => {
+			setIsConnected(true);
+			sendEvent('candidate_connect');
 
-    source.connect(processor);
-    processor.connect(audioContext.destination);
+			// Start processing now that socket is open
+			if (mediaStreamRef.current) setupAudioProcessing(mediaStreamRef.current);
+			if (screenStreamRef.current)
+				setupScreenProcessing(screenStreamRef.current);
 
-    processor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      // Convert to 16-bit PCM
-      const pcmData = new Int16Array(inputData.length);
-      for (let i = 0; i < inputData.length; i++) {
-        pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7fff;
-      }
+			sendEvent('screen_share_active');
+		};
+		ws.onmessage = (event) => {
+			const data = JSON.parse(event.data);
+			if (data.type === 'text') {
+				setFeedback((prev) => [...prev, data.payload]);
+			} else if (data.type === 'state_update') {
+				setCurrentState(data.payload);
+			}
+		};
+		ws.onclose = () => setIsConnected(false);
+		ws.onerror = (err) => console.error('WebSocket Error:', err);
+		socketRef.current = ws;
+	}, [sessionId, sendEvent]);
 
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        const base64Audio = btoa(
-          String.fromCharCode(...new Uint8Array(pcmData.buffer)),
-        );
-        socketRef.current.send(
-          JSON.stringify({ type: "audio", payload: base64Audio }),
-        );
-      }
-    };
-  };
+	const setupAudioProcessing = (stream: MediaStream) => {
+		const audioContext = new AudioContext({ sampleRate: 16000 });
+		audioContextRef.current = audioContext;
+		const source = audioContext.createMediaStreamSource(stream);
+		const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-  const setupScreenProcessing = (stream: MediaStream) => {
-    const videoTrack = stream.getVideoTracks()[0];
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.play();
+		source.connect(processor);
+		processor.connect(audioContext.destination);
 
-    frameIntervalRef.current = setInterval(() => {
-      if (
-        socketRef.current?.readyState === WebSocket.OPEN &&
-        video.readyState >= 2
-      ) {
-        try {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx?.drawImage(video, 0, 0);
-          // Use a reasonable quality for JPEG
-          const base64Frame = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
-          socketRef.current.send(
-            JSON.stringify({ type: "frame", payload: base64Frame }),
-          );
-        } catch (err) {
-          console.error("Error capturing frame:", err);
-        }
-      }
-    }, 200); // 5 fps (every 200ms)
-  };
+		processor.onaudioprocess = (e) => {
+			const inputData = e.inputBuffer.getChannelData(0);
+			// Convert to 16-bit PCM
+			const pcmData = new Int16Array(inputData.length);
+			for (let i = 0; i < inputData.length; i++) {
+				pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7fff;
+			}
 
-  const disconnect = useCallback(() => {
-    socketRef.current?.close();
-    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
-    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
-    audioContextRef.current?.close();
-    setIsConnected(false);
-  }, []);
+			if (socketRef.current?.readyState === WebSocket.OPEN) {
+				const base64Audio = btoa(
+					String.fromCharCode(...new Uint8Array(pcmData.buffer)),
+				);
+				socketRef.current.send(
+					JSON.stringify({ type: 'audio', payload: base64Audio }),
+				);
+			}
+		};
+	};
 
-  return { isConnected, feedback, connect, disconnect, sendEvent };
+	const setupScreenProcessing = (stream: MediaStream) => {
+		const videoTrack = stream.getVideoTracks()[0];
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		const video = document.createElement('video');
+		video.srcObject = stream;
+		video.play();
+
+		frameIntervalRef.current = setInterval(() => {
+			if (
+				socketRef.current?.readyState === WebSocket.OPEN &&
+				video.readyState >= 2
+			) {
+				try {
+					canvas.width = video.videoWidth;
+					canvas.height = video.videoHeight;
+					ctx?.drawImage(video, 0, 0);
+					// Use a reasonable quality for JPEG
+					const base64Frame = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+					socketRef.current.send(
+						JSON.stringify({ type: 'frame', payload: base64Frame }),
+					);
+				} catch (err) {
+					console.error('Error capturing frame:', err);
+				}
+			}
+		}, 200); // 5 fps (every 200ms)
+	};
+
+	const disconnect = useCallback(() => {
+		socketRef.current?.close();
+		mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+		screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+		if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+		audioContextRef.current?.close();
+		setIsConnected(false);
+	}, []);
+
+	return {
+		isConnected,
+		feedback,
+		currentState,
+		connect,
+		disconnect,
+		sendEvent,
+	};
 }

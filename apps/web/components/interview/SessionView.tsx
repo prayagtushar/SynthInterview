@@ -25,7 +25,7 @@ export default function SessionView() {
     [searchParams],
   );
 
-  const { isConnected, feedback, connect, disconnect, sendEvent } =
+  const { isConnected, feedback, currentState, connect, disconnect, sendEvent } =
     useInterview(sessionId);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -84,6 +84,10 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
             <span className="px-2 py-0.5 bg-[#222] text-[10px] font-bold text-gray-400 rounded">
               EASY
             </span>
+            <div className="h-4 w-[1px] bg-[#333] mx-2" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-1 bg-white/10 rounded-full border border-white/10">
+              {currentState.replace("_", " ")}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -138,10 +142,15 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
           {/* Right Sidebar - AI Log & Scorecard */}
           <div className="w-80 flex flex-col bg-[#050505]">
             <div className="p-4 border-b border-[#333]">
-              <div className="flex items-center gap-2 mb-4">
-                <Terminal size={14} className="text-gray-400" />
-                <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
-                  AI Feedback
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Terminal size={14} className="text-gray-400" />
+                  <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                    AI Feedback
+                  </span>
+                </div>
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-tighter">
+                  Phase: {currentState}
                 </span>
               </div>
               <div className="space-y-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
