@@ -10,6 +10,7 @@ import {
 	PlayCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 const fadeUpVariants = {
 	hidden: { opacity: 0, y: 30 },
@@ -68,7 +69,7 @@ export default function FeaturesSection() {
 	return (
 		<>
 			{/* Feature Grid */}
-			<section className='features-section'>
+			<section id='features' className='features-section'>
 				<motion.div
 					initial='hidden'
 					whileInView='visible'
@@ -102,7 +103,7 @@ export default function FeaturesSection() {
 			</section>
 
 			{/* Process Section */}
-			<section className='features-section border-t border-white/5 bg-[#050505]'>
+			<section id='workflow' className='features-section border-t border-white/5 bg-[#050505]'>
 				<motion.div
 					initial='hidden'
 					whileInView='visible'
@@ -175,7 +176,7 @@ export default function FeaturesSection() {
 			</section>
 
 			{/* Pricing Section */}
-			<section className='features-section border-t border-white/5'>
+			<section id='pricing' className='features-section border-t border-white/5'>
 				<motion.div
 					initial='hidden'
 					whileInView='visible'
@@ -211,9 +212,9 @@ export default function FeaturesSection() {
 									</div>
 								))}
 							</div>
-							<button className='hero-cta hero-cta-secondary w-full mt-auto'>
+							<Link href='/recruiter' className='hero-cta hero-cta-secondary w-full mt-auto text-center'>
 								Get Started
-							</button>
+							</Link>
 						</motion.div>
 
 						<motion.div
@@ -243,9 +244,9 @@ export default function FeaturesSection() {
 									</div>
 								))}
 							</div>
-							<button className='hero-cta hero-cta-primary w-full mt-auto'>
+							<Link href='/recruiter' className='hero-cta hero-cta-primary w-full mt-auto text-center'>
 								Go Pro
-							</button>
+							</Link>
 						</motion.div>
 
 						<motion.div variants={fadeUpVariants} className='pricing-card'>
@@ -270,9 +271,9 @@ export default function FeaturesSection() {
 									</div>
 								))}
 							</div>
-							<button className='hero-cta hero-cta-secondary w-full mt-auto'>
+							<Link href='/recruiter' className='hero-cta hero-cta-secondary w-full mt-auto text-center'>
 								Contact Sales
-							</button>
+							</Link>
 						</motion.div>
 					</div>
 				</motion.div>

@@ -16,6 +16,8 @@ const fadeUpVariants = {
 	},
 };
 
+import Link from 'next/link';
+
 export default function HeroOverlay() {
 	return (
 		<div className='hero-overlay relative overflow-hidden'>
@@ -48,16 +50,16 @@ export default function HeroOverlay() {
 				</motion.p>
 
 				<motion.div variants={fadeUpVariants} className='hero-cta-group'>
-					<a href='#' className='hero-cta hero-cta-primary btn-glow group'>
+					<Link href='/session' className='hero-cta hero-cta-primary btn-glow group'>
 						Start a Session
 						<ArrowRight
 							size={18}
 							className='ml-1 transition-transform group-hover:translate-x-1'
 						/>
-					</a>
-					<a href='#' className='hero-cta hero-cta-secondary'>
-						Book a Demo
-					</a>
+					</Link>
+					<Link href='/recruiter' className='hero-cta hero-cta-secondary'>
+						Recruiter Portal
+					</Link>
 				</motion.div>
 
 				{/* Mockup Placeholder */}

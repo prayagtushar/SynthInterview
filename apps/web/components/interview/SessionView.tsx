@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
+import { useInterview } from '../../lib/useInterview';
 import {
 	Mic,
 	MicOff,
@@ -13,9 +14,11 @@ import {
 	Terminal,
 	User,
 	FileJson,
+	CircleDot,
 } from 'lucide-react';
 
 export default function SessionView() {
+	const { isConnected, feedback, connect, disconnect } = useInterview();
 	const [isMuted, setIsMuted] = useState(false);
 	const [isVideoOff, setIsVideoOff] = useState(false);
 	const [code, setCode] = useState(`// Welcome to your SynthInterview session.
@@ -75,15 +78,25 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
 
 					<div className='flex items-center gap-3'>
 						<div className='flex items-center gap-2 mr-4'>
-							<div className='w-2 h-2 rounded-full bg-green-500 animate-pulse'></div>
-							<span className='text-[10px] font-bold tracking-widest text-green-500 uppercase'>
-								AI Synchronized
+							<div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+							<span className={`text-[10px] font-bold tracking-widest uppercase ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
+								{isConnected ? 'AI Synchronized' : 'AI Offline'}
 							</span>
 						</div>
-						<button className='flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-sm text-sm font-bold hover:bg-gray-200 transition-colors'>
-							<Play size={14} />
-							Run Code
-						</button>
+						{!isConnected ? (
+							<button 
+								onClick={connect}
+								className='flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-sm text-sm font-bold hover:bg-gray-200 transition-colors'
+							>
+								<CircleDot size={14} className='animate-pulse text-red-600' />
+								Start Interview
+							</button>
+						) : (
+							<button className='flex items-center gap-2 bg-[#222] text-white px-4 py-1.5 rounded-sm text-sm font-bold hover:bg-[#333] transition-colors'>
+								<Play size={14} />
+								Run Code
+							</button>
+						)}
 					</div>
 				</header>
 
@@ -96,6 +109,7 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
 							defaultLanguage='javascript'
 							defaultValue={code}
 							theme='vs-dark'
+							onChange={(val) => setCode(val || '')}
 							options={{
 								fontSize: 14,
 								minimap: { enabled: false },
@@ -116,16 +130,25 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
 									AI Feedback
 								</span>
 							</div>
-							<div className='space-y-4'>
-								<div className='bg-[#111] p-3 rounded border border-[#222]'>
-									<p className='text-xs leading-relaxed text-gray-300 italic'>
-										"I noticed you're choosing a brute force approach. Have you
-										considered using a Map to improve time complexity?"
-									</p>
-									<span className='text-[9px] text-gray-500 mt-2 block uppercase font-bold tracking-tighter'>
-										Just now • Voice Prompt
-									</span>
-								</div>
+							<div className='space-y-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar'>
+								{feedback.length === 0 ? (
+									<div className='bg-[#0a0a0a] p-3 rounded border border-dashed border-[#222]'>
+										<p className='text-[10px] text-gray-600 leading-relaxed text-center italic'>
+											Waiting for session to start...
+										</p>
+									</div>
+								) : (
+									[...feedback].reverse().map((msg, i) => (
+										<div key={i} className='bg-[#111] p-3 rounded border border-[#222] animate-in fade-in slide-in-from-right-2 duration-300'>
+											<p className='text-xs leading-relaxed text-gray-300 italic'>
+												"{msg}"
+											</p>
+											<span className='text-[9px] text-gray-500 mt-2 block uppercase font-bold tracking-tighter'>
+												{i === 0 ? 'Just now' : `${i * 30}s ago`} • AI Response
+											</span>
+										</div>
+									))
+								)}
 							</div>
 						</div>
 
@@ -141,20 +164,20 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
 								<div className='space-y-2'>
 									<div className='flex justify-between text-[11px] font-medium'>
 										<span className='text-gray-400'>Problem Solving</span>
-										<span className='text-white'>85%</span>
+										<span className='text-white'>--%</span>
 									</div>
 									<div className='h-1 bg-[#222] rounded-full overflow-hidden'>
-										<div className='h-full bg-white w-[85%]'></div>
+										<div className={`h-full bg-white w-0 transition-all duration-1000 ${isConnected ? 'w-[10%]' : ''}`}></div>
 									</div>
 								</div>
 
 								<div className='space-y-2'>
 									<div className='flex justify-between text-[11px] font-medium'>
 										<span className='text-gray-400'>Communication</span>
-										<span className='text-white'>92%</span>
+										<span className='text-white'>--%</span>
 									</div>
 									<div className='h-1 bg-[#222] rounded-full overflow-hidden'>
-										<div className='h-full bg-white w-[92%]'></div>
+										<div className={`h-full bg-white w-0 transition-all duration-1000 ${isConnected ? 'w-[10%]' : ''}`}></div>
 									</div>
 								</div>
 
@@ -167,7 +190,10 @@ console.log(solve([3, 1, 4, 1, 5, 9]));
 						</div>
 
 						<footer className='p-4 bg-[#0a0a0a] border-t border-[#333]'>
-							<button className='w-full border border-red-900 text-red-500 py-2 text-xs font-bold rounded-sm hover:bg-red-950/30 transition-colors uppercase tracking-widest'>
+							<button 
+								onClick={disconnect}
+								className='w-full border border-red-900 text-red-500 py-2 text-xs font-bold rounded-sm hover:bg-red-950/30 transition-colors uppercase tracking-widest'
+							>
 								End Interview
 							</button>
 						</footer>
