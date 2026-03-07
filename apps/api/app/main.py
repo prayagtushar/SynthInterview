@@ -229,10 +229,32 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             except Exception as e:
                 print(f"Forward loop error: {e}")
 
-        # ── Run both ───────────────────────────────────────────────────
+        # ── 3) TIMER WATCHER: agent pending messages ───────────────────
+        async def watch_agent_timer():
+            try:
+                while True:
+                    await asyncio.sleep(1)
+                    if hasattr(agent, '_pending_timer_msg') and agent._pending_timer_msg:
+                        msg = agent._pending_timer_msg
+                        agent._pending_timer_msg = None
+                        # Notify frontend of state change
+                        await websocket.send_json({
+                            "type": "state_update",
+                            "payload": agent.current_state.value,
+                        })
+                        # Tell Gemini it's time to speak
+                        phase = agent.current_state.value
+                        await gemini.send_text(f"[PHASE: {phase}]\n{msg}")
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                print(f"Timer watcher error: {e}")
+
+        # ── Run tasks ───────────────────────────────────────────────────
         tasks = [
             asyncio.create_task(receive_from_gemini()),
             asyncio.create_task(forward_client_to_gemini()),
+            asyncio.create_task(watch_agent_timer()),
         ]
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         for t in pending:

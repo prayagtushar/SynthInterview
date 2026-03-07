@@ -93,14 +93,15 @@ class InterviewAgent:
             )
 
         elif state == AgentState.THINK_TIME:
+            # Start the auto-advance timer FIRST (before return)
+            self.timer_task = asyncio.create_task(
+                self._start_timer(60, AgentState.APPROACH_LISTEN)
+            )
             return (
-                "Excellent! You have 2 minutes to think about your approach silently. "
+                "Excellent! You have about a minute to think about your approach silently. "
                 "I'll be observing your screen quietly. "
                 "Feel free to jot down notes or pseudocode in the editor. "
-                "I'll check in with you when time is up."
-            )
-            self.timer_task = asyncio.create_task(
-                self._start_timer(120, AgentState.APPROACH_LISTEN)
+                "I'll check in with you when time is up, or click 'Skip Timer' when you're ready."
             )
 
         elif state == AgentState.APPROACH_LISTEN:
@@ -172,7 +173,11 @@ class InterviewAgent:
     async def _start_timer(self, seconds: int, target_state: AgentState) -> None:
         """Handles delayed automatic state transitions."""
         await asyncio.sleep(seconds)
-        await self.update_state(target_state)
+        # Use handle_event so main.py can detect the transition
+        msg = await self.handle_event("timer_expired", None)
+        # Store the scripted message for the websocket handler to pick up
+        if msg:
+            self._pending_timer_msg = msg
 
     def get_system_instruction(self) -> str:
         """Returns the Gemini system instruction based on the current state."""
