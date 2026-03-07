@@ -1,6 +1,7 @@
 # API
 
 FastAPI service that orchestrates:
+
 - Story analysis and long-context planning (Gemini)
 - Panel image generation (Imagen)
 - Real-time streaming over WebSockets

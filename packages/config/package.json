@@ -1,6 +1,6 @@
 {
-	"name": "@synth-interview/config",
-	"version": "0.1.0",
-	"private": true,
-	"type": "module"
+  "name": "@synth-interview/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module"
 }

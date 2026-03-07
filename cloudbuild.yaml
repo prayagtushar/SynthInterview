@@ -1,57 +1,73 @@
 steps:
   # Build and Push Backend
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA', '-f', 'apps/api/Dockerfile', '.']
-    id: 'build-api'
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA",
+        "-f",
+        "apps/api/Dockerfile",
+        ".",
+      ]
+    id: "build-api"
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA']
-    id: 'push-api'
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA"]
+    id: "push-api"
 
   # Build and Push Frontend
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA', '-f', 'apps/web/Dockerfile', '.']
-    id: 'build-web'
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA",
+        "-f",
+        "apps/web/Dockerfile",
+        ".",
+      ]
+    id: "build-web"
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA']
-    id: 'push-web'
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA"]
+    id: "push-web"
 
   # Deploy Backend to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
     args:
-      - 'run'
-      - 'deploy'
-      - 'synth-interview-api'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-    id: 'deploy-api'
+      - "run"
+      - "deploy"
+      - "synth-interview-api"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA"
+      - "--region"
+      - "us-central1"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+    id: "deploy-api"
 
   # Deploy Frontend to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
     args:
-      - 'run'
-      - 'deploy'
-      - 'synth-interview-web'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-    id: 'deploy-web'
+      - "run"
+      - "deploy"
+      - "synth-interview-web"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA"
+      - "--region"
+      - "us-central1"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+    id: "deploy-web"
 
 images:
-  - 'gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA'
+  - "gcr.io/$PROJECT_ID/synth-interview-api:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA"
 
 options:
   logging: CLOUD_LOGGING_ONLY
