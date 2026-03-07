@@ -1,4 +1,3 @@
-
 # AI Coding Interview Agent
 
 ## Gemini Live Agent Challenge — Live Agents Category
@@ -18,13 +17,13 @@ The agent conducts full technical coding interviews via **voice and screen share
 
 ### Hackathon Details
 
-| Category | Live Agents |
-|---|---|
-| Primary Tech | Gemini Live API + Google ADK |
-| Cloud Hosting | Google Cloud Run + Firestore |
-| Voice Layer | ElevenLabs Persona Voice + Gemini Native TTS |
-| Target Users | Recruiters, Bootcamps, Hiring Platforms |
-| Estimated Build Time | 14 Days |
+| Category             | Live Agents                                  |
+| -------------------- | -------------------------------------------- |
+| Primary Tech         | Gemini Live API + Google ADK                 |
+| Cloud Hosting        | Google Cloud Run + Firestore                 |
+| Voice Layer          | ElevenLabs Persona Voice + Gemini Native TTS |
+| Target Users         | Recruiters, Bootcamps, Hiring Platforms      |
+| Estimated Build Time | 14 Days                                      |
 
 ---
 
@@ -39,18 +38,18 @@ The system consists of four primary layers:
 3. AI Intelligence Layer
 4. Cloud Infrastructure
 
-| Layer | Component | Technology | Responsibility |
-|---|---|---|---|
-| Frontend | Candidate App | React + WebRTC | Screen share capture, audio stream, interview UI |
-| Frontend | Recruiter Dashboard | React | View reports, configure sessions |
-| Backend | API Server | FastAPI | Session management, REST API |
-| Backend | Agent Core | Google ADK | Conversation flow, state machine |
-| AI | Vision + Voice | Gemini Live API | Speech recognition, screen analysis |
-| AI | Voice Persona | ElevenLabs | Human-like interviewer voice |
-| Cloud | Hosting | Cloud Run | Containerized backend |
-| Cloud | Database | Firestore | Session data, transcripts |
-| Cloud | Storage | Cloud Storage | Snapshots, audio, reports |
-| Cloud | Authentication | Firebase Auth | Candidate & recruiter authentication |
+| Layer    | Component           | Technology      | Responsibility                                   |
+| -------- | ------------------- | --------------- | ------------------------------------------------ |
+| Frontend | Candidate App       | React + WebRTC  | Screen share capture, audio stream, interview UI |
+| Frontend | Recruiter Dashboard | React           | View reports, configure sessions                 |
+| Backend  | API Server          | FastAPI         | Session management, REST API                     |
+| Backend  | Agent Core          | Google ADK      | Conversation flow, state machine                 |
+| AI       | Vision + Voice      | Gemini Live API | Speech recognition, screen analysis              |
+| AI       | Voice Persona       | ElevenLabs      | Human-like interviewer voice                     |
+| Cloud    | Hosting             | Cloud Run       | Containerized backend                            |
+| Cloud    | Database            | Firestore       | Session data, transcripts                        |
+| Cloud    | Storage             | Cloud Storage   | Snapshots, audio, reports                        |
+| Cloud    | Authentication      | Firebase Auth   | Candidate & recruiter authentication             |
 
 ---
 
@@ -73,56 +72,56 @@ The system consists of four primary layers:
 
 ## 3.1 Frontend
 
-| Tool | Version | Purpose |
-|---|---|---|
-| React | 18.x | UI framework |
-| Vite | 5.x | Build tool |
-| TypeScript | 5.x | Type safety |
-| TailwindCSS | 3.x | Styling |
-| shadcn/ui | Latest | UI components |
-| WebRTC | Native API | Screen + audio streaming |
-| Socket.io | 4.x | WebSocket communication |
-| Monaco Editor | Latest | Code preview |
-| React Query | 5.x | Server state management |
-| Zustand | 4.x | Client state |
-| Framer Motion | 11.x | Animations |
-| Recharts | 2.x | Dashboard charts |
+| Tool          | Version    | Purpose                  |
+| ------------- | ---------- | ------------------------ |
+| React         | 18.x       | UI framework             |
+| Vite          | 5.x        | Build tool               |
+| TypeScript    | 5.x        | Type safety              |
+| TailwindCSS   | 3.x        | Styling                  |
+| shadcn/ui     | Latest     | UI components            |
+| WebRTC        | Native API | Screen + audio streaming |
+| Socket.io     | 4.x        | WebSocket communication  |
+| Monaco Editor | Latest     | Code preview             |
+| React Query   | 5.x        | Server state management  |
+| Zustand       | 4.x        | Client state             |
+| Framer Motion | 11.x       | Animations               |
+| Recharts      | 2.x        | Dashboard charts         |
 
 ---
 
 ## 3.2 Backend
 
-| Tool | Version | Purpose |
-|---|---|---|
-| Python | 3.12 | Runtime |
-| FastAPI | 0.111 | REST API + WebSockets |
-| Google ADK | Latest | Agent orchestration |
-| google-genai SDK | Latest | Gemini Live integration |
-| firebase-admin | 6.x | Firestore + Auth |
-| google-cloud-storage | 2.x | File storage |
-| Pillow | 10.x | Image processing |
-| ElevenLabs SDK | Latest | Voice synthesis |
-| Pydantic | 2.x | Validation |
-| Uvicorn | 0.29 | ASGI server |
-| Redis | 7.x | Session state |
-| WeasyPrint | Latest | PDF generation |
+| Tool                 | Version | Purpose                 |
+| -------------------- | ------- | ----------------------- |
+| Python               | 3.12    | Runtime                 |
+| FastAPI              | 0.111   | REST API + WebSockets   |
+| Google ADK           | Latest  | Agent orchestration     |
+| google-genai SDK     | Latest  | Gemini Live integration |
+| firebase-admin       | 6.x     | Firestore + Auth        |
+| google-cloud-storage | 2.x     | File storage            |
+| Pillow               | 10.x    | Image processing        |
+| ElevenLabs SDK       | Latest  | Voice synthesis         |
+| Pydantic             | 2.x     | Validation              |
+| Uvicorn              | 0.29    | ASGI server             |
+| Redis                | 7.x     | Session state           |
+| WeasyPrint           | Latest  | PDF generation          |
 
 ---
 
 ## 3.3 Google Cloud Services
 
-| Service | Usage |
-|---|---|
-| Cloud Run | Host backend |
-| Firestore | Store sessions & transcripts |
-| Cloud Storage | Store snapshots & reports |
-| Firebase Auth | Authentication |
-| Cloud Memorystore | Redis session state |
-| Artifact Registry | Docker images |
-| Cloud Build | CI/CD pipeline |
-| Vertex AI | Gemini API access |
-| Cloud Logging | Monitoring |
-| Secret Manager | API key storage |
+| Service           | Usage                        |
+| ----------------- | ---------------------------- |
+| Cloud Run         | Host backend                 |
+| Firestore         | Store sessions & transcripts |
+| Cloud Storage     | Store snapshots & reports    |
+| Firebase Auth     | Authentication               |
+| Cloud Memorystore | Redis session state          |
+| Artifact Registry | Docker images                |
+| Cloud Build       | CI/CD pipeline               |
+| Vertex AI         | Gemini API access            |
+| Cloud Logging     | Monitoring                   |
+| Secret Manager    | API key storage              |
 
 ---
 
@@ -148,7 +147,7 @@ Firestore session structure:
   "questionId": "",
   "startTime": ""
 }
-````
+```
 
 ---
 
@@ -158,15 +157,15 @@ Agent greets candidate.
 
 Candidate must:
 
-* Share full screen
-* Open editor
-* Close all files
+- Share full screen
+- Open editor
+- Close all files
 
 Gemini checks:
 
-* Editor in focus
-* Clean workspace
-* No browser tabs
+- Editor in focus
+- Clean workspace
+- No browser tabs
 
 ---
 
@@ -176,8 +175,8 @@ Agent reads problem aloud.
 
 Candidate commands:
 
-* “Repeat the question”
-* “Explain simpler”
+- “Repeat the question”
+- “Explain simpler”
 
 Agent confirms understanding.
 
@@ -189,10 +188,10 @@ Candidate receives **1–2 minutes** thinking time.
 
 Agent asks:
 
-* Why that data structure?
-* Time complexity?
-* Edge cases?
-* Scalability?
+- Why that data structure?
+- Time complexity?
+- Edge cases?
+- Scalability?
 
 Approach scored (1-5).
 
@@ -204,10 +203,10 @@ Agent observes coding in real time.
 
 Behaviors:
 
-* Detect inactivity
-* Provide hints if requested
-* Detect cheating
-* Monitor editor activity
+- Detect inactivity
+- Provide hints if requested
+- Detect cheating
+- Monitor editor activity
 
 ---
 
@@ -229,8 +228,8 @@ Agent asks candidate to optimize solution.
 
 Gemini verifies:
 
-* Time complexity
-* Space complexity
+- Time complexity
+- Space complexity
 
 ---
 
@@ -240,9 +239,9 @@ Agent ends session.
 
 System generates:
 
-* Transcript
-* Evaluation report
-* Recruiter PDF
+- Transcript
+- Evaluation report
+- Recruiter PDF
 
 ---
 
@@ -266,13 +265,14 @@ System generates:
 ---
 
 #
+
 - Send structured prompt to Gemini (non-live, standard API): generate JSON scorecard
-    with dimensions
+  with dimensions
 - Scorecard dimensions: Problem Understanding (1- 5 ), Approach Quality (1-5), Code
-    Quality (1-5), Test Performance (1-5), Communication (1-5), Optimization Ability (1-5),
-    Overall Recommendation (Hire / No Hire / Strong Hire)
+  Quality (1-5), Test Performance (1-5), Communication (1-5), Optimization Ability (1-5),
+  Overall Recommendation (Hire / No Hire / Strong Hire)
 - Build PDF renderer using weasyprint: styled HTML template → PDF with company
-    branding slots
+  branding slots
 - Upload PDF to Cloud Storage; store signed URL in Firestore session document
 - Send email notification to recruiter with PDF link via Firebase Extension (email trigger)
 
@@ -282,17 +282,17 @@ System generates:
 Checkpoint: 20+ questions seeded across 3 difficulties and 5 topic categories. Agent can
 retrieve appropriate question based on session config.
 ```
+
 - Design Firestore schema: questions/{id} → { title, description, difficulty, topics[], hints[],
-    testCases[], solutions[], timeComplexity, spaceComplexity }
+  testCases[], solutions[], timeComplexity, spaceComplexity }
 - Seed 20 questions: 6 Easy (Arrays, Strings), 8 Medium (Hashmaps, Binary Search,
-    Sliding Window), 6 Hard (DP, Graphs, Trees)
+  Sliding Window), 6 Hard (DP, Graphs, Trees)
 - Build question selector: filter by session config, avoid repeats (check candidate history in
-    Firestore)
+  Firestore)
 - Add hint chain: each question has 3 progressive hints (directional only, never full
-    solution)
+  solution)
 
 #### TASK 11 — Polish, Testing & Demo Prep (Day 13-14)
-
 
 Checkpoint: Full end-to-end demo recorded. Architecture diagram finalized. Cloud
 deployment proven. GitHub README complete with spin-up instructions.
@@ -300,17 +300,16 @@ deployment proven. GitHub README complete with spin-up instructions.
 - End-to-end test: run 2 full mock interviews (Easy + Medium difficulty)
 - Load test: simulate 3 concurrent sessions on Cloud Run — verify auto-scaling works
 - Error handling audit: WebSocket disconnection recovery, Gemini API timeout fallback,
-    TTS failure graceful degradation
+  TTS failure graceful degradation
 - Record 4-minute demo video: open with cheat detection scene (high wow factor), show
-    full flow, end with recruiter PDF report
+  full flow, end with recruiter PDF report
 - Create architecture diagram (Lucidchart or Excalidraw) showing all components and
-    data flows
+  data flows
 - Record GCP console screen showing Cloud Run deployment (proof of hosting)
 - Write GitHub README: setup instructions, environment variables, local run guide,
-    deploy guide
+  deploy guide
 - Write Devpost submission: problem statement, solution description, tech used, learnings
 - Optional: Publish Medium blog post with #GeminiLiveAgentChallenge for bonus points
-
 
 # 7. Environment Variables
 
@@ -346,9 +345,9 @@ Use hashtag:
 
 Include:
 
-* `cloudbuild.yaml`
-* Terraform scripts
-* Infrastructure configs
+- `cloudbuild.yaml`
+- Terraform scripts
+- Infrastructure configs
 
 ---
 
@@ -362,7 +361,7 @@ Register and add GDG profile to submission.
 
 A fully automated **AI coding interviewer** capable of conducting technical interviews with:
 
-* Real-time voice interaction
-* Screen monitoring
-* Adaptive questioning
-* Automated evaluation reports
+- Real-time voice interaction
+- Screen monitoring
+- Adaptive questioning
+- Automated evaluation reports
