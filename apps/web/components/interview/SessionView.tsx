@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   XCircle,
   FileText,
+  WifiOff,
 } from "lucide-react";
 
 // State badge colors
@@ -34,6 +35,7 @@ const STATE_COLORS: Record<string, string> = {
   OPTIMIZATION: "bg-pink-900/50 text-pink-300",
   COMPLETED: "bg-emerald-900/50 text-emerald-300",
   FLAGGED: "bg-red-900/50 text-red-300",
+  SCREEN_NOT_VISIBLE: "bg-amber-900/50 text-amber-300",
 };
 
 const STATE_ICONS: Record<string, React.ReactNode> = {
@@ -49,6 +51,7 @@ const STATE_ICONS: Record<string, React.ReactNode> = {
   OPTIMIZATION: <span className="text-xs">⚡</span>,
   COMPLETED: <CheckCircle size={12} />,
   FLAGGED: <AlertTriangle size={12} />,
+  SCREEN_NOT_VISIBLE: <WifiOff size={12} />,
 };
 
 // State transitions the user can manually trigger (for testing / button controls)
@@ -58,18 +61,12 @@ const MANUAL_TRANSITIONS: Record<
 > = {
   GREETING: [
     {
-      label: "Screen Shared",
+      label: "Share Screen & Mic",
       event: "screen_share_active",
       icon: <Monitor size={12} />,
     },
   ],
-  ENV_CHECK: [
-    {
-      label: "Env is Clean",
-      event: "workspace_clean",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
+  ENV_CHECK: [],
   PROBLEM_DELIVERY: [
     {
       label: "I Understand",
@@ -120,6 +117,13 @@ const MANUAL_TRANSITIONS: Record<
       icon: <CheckCircle size={12} />,
     },
   ],
+  SCREEN_NOT_VISIBLE: [
+    {
+      label: "Share Screen Again",
+      event: "screen_share_active",
+      icon: <Monitor size={12} />,
+    },
+  ],
 };
 
 export default function SessionView() {
@@ -133,9 +137,19 @@ export default function SessionView() {
     isConnected,
     feedback,
     currentState,
+    screenLost,
+    isSpeaking,
+    isUserSpeaking,
+    isThinking,
+    violationReason,
+    tabSwitchWarning,
+    isTerminated,
     connect,
     disconnect,
     sendEvent,
+    reshareScreen,
+    stopScreenShare,
+    acquireAndStartMedia,
   } = useInterview(sessionId);
 
   const [isMuted, setIsMuted] = useState(false);
@@ -146,6 +160,13 @@ export default function SessionView() {
     `// Your solution here\n// The AI is watching and listening...\n\nfunction solve(nums, target) {\n  // Write your solution\n}\n`,
   );
   const feedbackRef = useRef<HTMLDivElement>(null);
+  // Track current state in a ref for Monaco paste handler closure
+  const currentStateForPaste = useRef(currentState);
+
+  // Keep paste-handler ref in sync with currentState
+  useEffect(() => {
+    currentStateForPaste.current = currentState;
+  }, [currentState]);
 
   // Auto-scroll feedback to top (newest first)
   useEffect(() => {
@@ -153,6 +174,29 @@ export default function SessionView() {
       feedbackRef.current.scrollTop = 0;
     }
   }, [feedback]);
+
+  if (isTerminated) {
+    return (
+      <div className="flex h-screen bg-[#0d0d0d] items-center justify-center font-mono">
+        <div className="text-center space-y-5 max-w-sm px-6">
+          <XCircle size={52} className="text-red-500 mx-auto" />
+          <p className="text-white font-bold text-2xl tracking-tight">
+            Interview Terminated
+          </p>
+          <p className="text-neutral-400 text-sm leading-relaxed">
+            This interview session was ended due to a policy violation.
+            The recruiter has been notified of the result.
+          </p>
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="px-5 py-2 bg-white text-black text-xs font-bold rounded hover:bg-gray-200 transition-colors"
+          >
+            Return to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const stateColor = STATE_COLORS[currentState] || "bg-gray-800 text-gray-400";
   const stateIcon = STATE_ICONS[currentState] || <CircleDot size={12} />;
@@ -180,9 +224,26 @@ export default function SessionView() {
           </button>
 
           <button
-            title="Screen Share Active"
+            onClick={
+              screenLost
+                ? reshareScreen
+                : isConnected
+                  ? stopScreenShare
+                  : undefined
+            }
+            title={
+              screenLost
+                ? "Click to reshare screen"
+                : isConnected
+                  ? "Click to stop screen share"
+                  : "Screen share inactive"
+            }
             className={`p-2 rounded-md transition-colors ${
-              isConnected ? "text-green-400" : "text-gray-600"
+              screenLost
+                ? "text-amber-400 animate-pulse hover:bg-amber-900/30"
+                : isConnected
+                  ? "text-green-400 hover:bg-white/5"
+                  : "text-gray-600"
             }`}
           >
             <Monitor size={18} />
@@ -215,17 +276,24 @@ export default function SessionView() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Connection indicator */}
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-              />
-              <span
-                className={`text-[10px] font-bold tracking-widest uppercase ${isConnected ? "text-green-400" : "text-red-400"}`}
-              >
-                {isConnected ? "AI Online" : "AI Offline"}
-              </span>
-            </div>
+            {/* 4-state audio indicator: Speaking / Thinking / Listening / Offline */}
+            {(() => {
+              const s = isSpeaking
+                ? { dot: "bg-blue-400",  text: "text-blue-400",  label: "Speaking"  }
+                : isThinking
+                ? { dot: "bg-amber-400", text: "text-amber-400", label: "Thinking…" }
+                : isConnected
+                ? { dot: "bg-green-400", text: "text-green-400", label: "Listening" }
+                : { dot: "bg-red-500",   text: "text-red-400",   label: "AI Offline" };
+              return (
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${s.dot}`} />
+                  <span className={`text-[10px] font-bold tracking-widest uppercase ${s.text}`}>
+                    {s.label}
+                  </span>
+                </div>
+              );
+            })()}
 
             {!isConnected ? (
               <button
@@ -249,8 +317,83 @@ export default function SessionView() {
           </div>
         </header>
 
+        {/* Interruption warning — shown when user speaks while agent is speaking */}
+        {isSpeaking && isUserSpeaking && (
+          <div className="flex items-center gap-2 px-5 py-1.5 bg-blue-950/60 border-b border-blue-800/40 shrink-0">
+            <span className="text-[10px] text-blue-300 font-medium">
+              Synth is speaking — please listen and wait for your turn.
+            </span>
+          </div>
+        )}
+
+        {/* Screen Share Lost Banner */}
+        {screenLost && (
+          <div className="flex items-center justify-between px-5 py-2.5 bg-amber-950/60 border-b border-amber-800/50 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-amber-400" />
+              <span className="text-xs text-amber-300 font-medium">
+                Screen share stopped — the interviewer is waiting for you to reshare your screen.
+              </span>
+            </div>
+            <button
+              onClick={reshareScreen}
+              className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded transition-colors"
+            >
+              <Monitor size={12} />
+              Share Screen Again
+            </button>
+          </div>
+        )}
+
+        {/* Tab Switch Warning Banner */}
+        {tabSwitchWarning && (
+          <div className="flex items-center px-5 py-2 bg-orange-950/60 border-b border-orange-800/50 shrink-0">
+            <AlertTriangle size={14} className="text-orange-400 mr-2 shrink-0" />
+            <span className="text-xs text-orange-300 font-medium">
+              Tab switch detected — {tabSwitchWarning.count}/{tabSwitchWarning.max} warnings used.
+              {tabSwitchWarning.count >= tabSwitchWarning.max
+                ? " Interview terminated."
+                : " One more will end the interview."}
+            </span>
+          </div>
+        )}
+
+        {/* Cheat Violation Banner */}
+        {currentState === "FLAGGED" && (
+          <div className="flex items-center justify-between px-5 py-2.5 bg-red-950/60 border-b border-red-800/50 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-red-400" />
+              <span className="text-xs text-red-300 font-medium">
+                VIOLATION DETECTED: {violationReason || "Suspicious activity detected"}
+              </span>
+            </div>
+            <button
+              onClick={() => sendEvent("warning_acknowledged")}
+              className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded transition-colors"
+            >
+              Acknowledge
+            </button>
+          </div>
+        )}
+
         {/* Editor + AI Panel */}
-        <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex min-h-0 relative">
+          {/* ENV_CHECK overlay — shown while environment is being verified */}
+          {currentState === "ENV_CHECK" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-950/85 z-20 gap-5">
+              <div className="w-12 h-12 rounded-full border-4 border-yellow-400 border-t-transparent animate-spin" />
+              <div className="text-center space-y-2">
+                <p className="text-white font-bold text-lg tracking-wide uppercase">
+                  Environment Check
+                </p>
+                <p className="text-neutral-400 text-xs text-center max-w-xs leading-relaxed">
+                  Stay on this tab. Verification completes automatically after
+                  12 seconds of continuous presence.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Monaco Editor */}
           <div className="flex-[3] min-w-0 border-r border-white/5">
             <Editor
@@ -259,6 +402,18 @@ export default function SessionView() {
               value={code}
               theme="vs-dark"
               onChange={(val) => setCode(val || "")}
+              onMount={(editor) => {
+                // Paste detection: flag large pastes during CODING as potential AI assist
+                editor.onDidPaste((e) => {
+                  if (currentStateForPaste.current !== "CODING") return;
+                  const pastedText = editor
+                    .getModel()
+                    ?.getValueInRange(e.range) ?? "";
+                  if (pastedText.length > 50) {
+                    sendEvent("large_paste", { length: pastedText.length });
+                  }
+                });
+              }}
               options={{
                 fontSize: 13,
                 minimap: { enabled: false },
@@ -309,7 +464,11 @@ export default function SessionView() {
                     <button
                       key={t.event}
                       id={`action-${t.event}`}
-                      onClick={() => sendEvent(t.event)}
+                      onClick={() =>
+                        t.event === "screen_share_active"
+                          ? acquireAndStartMedia()
+                          : sendEvent(t.event)
+                      }
                       className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold text-gray-300 hover:text-white transition-colors"
                     >
                       {t.icon}
@@ -330,7 +489,11 @@ export default function SessionView() {
                   <div className="border border-dashed border-white/10 rounded p-4 mt-4">
                     <p className="text-[10px] text-gray-600 text-center italic leading-relaxed">
                       {isConnected
-                        ? "Synth is listening…"
+                        ? isSpeaking
+                          ? "Synth is speaking…"
+                          : isThinking
+                          ? "Synth is thinking…"
+                          : "Synth is listening…"
                         : "Start the interview to begin."}
                     </p>
                   </div>
