@@ -11,8 +11,18 @@ export function useInterview(sessionId: string = "default-session") {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [violationReason, setViolationReason] = useState<string | null>(null);
-  const [tabSwitchWarning, setTabSwitchWarning] = useState<{ count: number; max: number } | null>(null);
+  const [tabSwitchWarning, setTabSwitchWarning] = useState<{
+    count: number;
+    max: number;
+  } | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
+  const [questionData, setQuestionData] = useState<{
+    title: string;
+    description: string;
+    testCases: { input: string; output: string }[];
+    optimalTimeComplexity: string;
+    optimalSpaceComplexity: string;
+  } | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -37,6 +47,14 @@ export function useInterview(sessionId: string = "default-session") {
   const currentStateRef = useRef("IDLE");
   // ENV_CHECK clean-stay timer
   const envCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Tab-away auto-terminate timer (10s)
+  const tabReturnTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Frame worker for offscreen canvas encoding (Fix 5)
+  const frameWorkerRef = useRef<Worker | null>(null);
+  // Code sync debounce timer (Fix 1)
+  const codeSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Copy buffer tracking for paste false-positive prevention (Fix 6)
+  const lastCopiedTextRef = useRef<string>("");
 
   // ── Helper: send a JSON event over WebSocket ────────────────────────────
   const send = useCallback((obj: object) => {
@@ -51,6 +69,26 @@ export function useInterview(sessionId: string = "default-session") {
     },
     [send],
   );
+
+  // ── Fix 1: Debounced code sync (sends editor contents to backend) ──────
+  const sendCode = useCallback(
+    (code: string) => {
+      if (codeSyncTimerRef.current) clearTimeout(codeSyncTimerRef.current);
+      codeSyncTimerRef.current = setTimeout(() => {
+        send({ type: "code_update", payload: code });
+      }, 1500); // Debounce: send at most every 1.5 seconds
+    },
+    [send],
+  );
+
+  // ── Fix 6: Track the last copied text for paste comparison ──────────────
+  const setLastCopied = useCallback((text: string) => {
+    lastCopiedTextRef.current = text;
+  }, []);
+
+  const getLastCopied = useCallback(() => {
+    return lastCopiedTextRef.current;
+  }, []);
 
   // ── Request media permissions (must be called inside a user gesture) ────
   const acquireMediaStreams = async (): Promise<boolean> => {
@@ -110,7 +148,10 @@ export function useInterview(sessionId: string = "default-session") {
       node.port.onmessage = (e: MessageEvent) => {
         if (socketRef.current?.readyState !== WebSocket.OPEN) return;
         try {
-          const { buffer, rms } = e.data as { buffer: ArrayBuffer; rms: number };
+          const { buffer, rms } = e.data as {
+            buffer: ArrayBuffer;
+            rms: number;
+          };
           const b64 = arrayBufferToBase64(buffer);
           send({ type: "audio", payload: b64 });
           audioChunksSent++;
@@ -128,14 +169,14 @@ export function useInterview(sessionId: string = "default-session") {
               vadSilenceTimerRef.current = null;
             }
           } else if (!vadSilenceTimerRef.current) {
-            // 600ms of continuous silence → user stopped speaking
+            // 400ms of continuous silence → user stopped speaking
             vadSilenceTimerRef.current = setTimeout(() => {
               setIsUserSpeaking(false);
               vadSilenceTimerRef.current = null;
               if (wasUserSpeakingRef.current) {
                 setIsThinking(true); // waiting for agent to respond
               }
-            }, 600);
+            }, 400);
           }
         } catch (err) {
           console.error("[Audio] Failed to encode/send chunk:", err);
@@ -149,13 +190,30 @@ export function useInterview(sessionId: string = "default-session") {
     }
   };
 
-  // ── Screen frame capture → WebSocket ────────────────────────────────────
+  // ── Screen frame capture → WebSocket (via OffscreenCanvas Worker) ──────
   const setupScreenProcessing = (stream: MediaStream): void => {
-    const canvas = document.createElement("canvas");
-    const ctx2d = canvas.getContext("2d");
     const video = document.createElement("video");
     video.srcObject = stream;
     video.play();
+
+    // Create the frame worker for off-main-thread JPEG encoding
+    try {
+      frameWorkerRef.current = new Worker("/frame-worker.js");
+      frameWorkerRef.current.onmessage = (e: MessageEvent) => {
+        if (e.data.b64 && socketRef.current?.readyState === WebSocket.OPEN) {
+          send({ type: "frame", payload: e.data.b64 });
+        }
+      };
+    } catch (err) {
+      console.warn(
+        "[Screen] Worker init failed, falling back to main thread",
+        err,
+      );
+    }
+
+    // Fallback canvas for browsers without OffscreenCanvas / createImageBitmap support
+    let fallbackCanvas: HTMLCanvasElement | null = null;
+    let fallbackCtx: CanvasRenderingContext2D | null = null;
 
     // Detect when screen sharing stops (both event-based and poll-based for reliability)
     let alreadyLost = false;
@@ -170,7 +228,9 @@ export function useInterview(sessionId: string = "default-session") {
       }
       if (isSpeakingRef.current) {
         // Agent is mid-sentence — let it finish, then warn about missing screen
-        console.log("[Screen] Agent speaking; deferring screen_share_ended until turn_complete");
+        console.log(
+          "[Screen] Agent speaking; deferring screen_share_ended until turn_complete",
+        );
         screenShareLostPendingRef.current = true;
       } else {
         send({ type: "event", payload: "screen_share_ended" });
@@ -181,7 +241,7 @@ export function useInterview(sessionId: string = "default-session") {
       track.onended = handleScreenEnded;
     });
 
-    frameIntervalRef.current = setInterval(() => {
+    frameIntervalRef.current = setInterval(async () => {
       if (socketRef.current?.readyState !== WebSocket.OPEN) return;
       if (!screenActiveRef.current) return; // only send when phase requires it
       // Poll-based fallback: detect interrupted screen share
@@ -191,29 +251,41 @@ export function useInterview(sessionId: string = "default-session") {
         return;
       }
       if (video.readyState < 2) return;
+
       try {
-        // Resize logic: Ensure max dimension is 1280px to stay within Gemini's sweet spot
-        const MAX_DIM = 1280;
-        let width = video.videoWidth;
-        let height = video.videoHeight;
-
-        if (width > height) {
-          if (width > MAX_DIM) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          }
+        if (frameWorkerRef.current && typeof createImageBitmap === "function") {
+          // Preferred path: send ImageBitmap to worker for off-main-thread encoding
+          const bitmap = await createImageBitmap(video);
+          frameWorkerRef.current.postMessage(
+            { bitmap, maxDim: 800, quality: 0.5 },
+            [bitmap], // transfer ownership
+          );
         } else {
-          if (height > MAX_DIM) {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
+          // Fallback: encode on main thread (legacy browsers)
+          const MAX_DIM = 800;
+          let width = video.videoWidth;
+          let height = video.videoHeight;
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
           }
+          if (!fallbackCanvas) {
+            fallbackCanvas = document.createElement("canvas");
+            fallbackCtx = fallbackCanvas.getContext("2d");
+          }
+          fallbackCanvas.width = width;
+          fallbackCanvas.height = height;
+          fallbackCtx?.drawImage(video, 0, 0, width, height);
+          const b64 = fallbackCanvas.toDataURL("image/jpeg", 0.5).split(",")[1];
+          send({ type: "frame", payload: b64 });
         }
-
-        canvas.width = width;
-        canvas.height = height;
-        ctx2d?.drawImage(video, 0, 0, width, height);
-        const b64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
-        send({ type: "frame", payload: b64 });
       } catch (err) {
         console.error("Frame capture error:", err);
       }
@@ -249,7 +321,9 @@ export function useInterview(sessionId: string = "default-session") {
   const acquireAndStartMedia = useCallback(async () => {
     const ok = await acquireMediaStreams();
     if (!ok) {
-      alert("Failed to access microphone or screen — please check permissions.");
+      alert(
+        "Failed to access microphone or screen — please check permissions.",
+      );
       return;
     }
 
@@ -269,8 +343,7 @@ export function useInterview(sessionId: string = "default-session") {
 
     if (mediaStreamRef.current)
       await setupAudioProcessing(mediaStreamRef.current);
-    if (screenStreamRef.current)
-      setupScreenProcessing(screenStreamRef.current);
+    if (screenStreamRef.current) setupScreenProcessing(screenStreamRef.current);
     sendEvent("screen_share_active");
   }, [send, sendEvent]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -299,7 +372,10 @@ export function useInterview(sessionId: string = "default-session") {
         if (data.metadata?.cheat_reason) {
           setViolationReason(data.metadata.cheat_reason);
         }
-        if (data.payload === "COMPLETED" && data.metadata?.terminated_for_cheating) {
+        if (
+          data.payload === "COMPLETED" &&
+          data.metadata?.terminated_for_cheating
+        ) {
           setIsTerminated(true);
         }
         if (data.payload === "ENV_CHECK") {
@@ -307,6 +383,18 @@ export function useInterview(sessionId: string = "default-session") {
         }
         if (data.payload === "SCREEN_NOT_VISIBLE") {
           setScreenLost(true);
+        }
+        // Extract question data for editor injection
+        if (data.metadata?.question) {
+          setQuestionData(data.metadata.question);
+        }
+        // ── Flush audio playback on state change ──────────────────
+        // Close and re-create the playback context so old phase audio
+        // doesn't bleed into the new phase.
+        if (playbackCtxRef.current) {
+          playbackCtxRef.current.close().catch(() => {});
+          playbackCtxRef.current = null;
+          nextPlayAtRef.current = 0;
         }
       } else if (data.type === "turn_complete") {
         // Gemini's turn is definitively done — clear Speaking and Thinking
@@ -387,11 +475,28 @@ export function useInterview(sessionId: string = "default-session") {
     // Penalise switches in ENV_CHECK AND all active coding phases.
     // GREETING is excluded — OS screen-picker legitimately hides the tab there.
     const TAB_GUARDED_STATES = new Set([
-      "ENV_CHECK", "PROBLEM_DELIVERY", "APPROACH_LISTEN", "CODING",
-      "HINT_DELIVERY", "TESTING", "OPTIMIZATION",
+      "ENV_CHECK",
+      "PROBLEM_DELIVERY",
+      "APPROACH_LISTEN",
+      "CODING",
+      "HINT_DELIVERY",
+      "TESTING",
+      "OPTIMIZATION",
     ]);
+    const TAB_AWAY_TERMINATE_MS = 10000; // 10s away after warning → auto-terminate
+
     const handleVisibilityChange = () => {
-      if (!document.hidden) return; // only fire when tab is hidden (switched away)
+      // ── Candidate RETURNED to tab ─────────────────────────────
+      if (!document.hidden) {
+        // Cancel the 10s auto-terminate timer
+        if (tabReturnTimerRef.current) {
+          clearTimeout(tabReturnTimerRef.current);
+          tabReturnTimerRef.current = null;
+        }
+        return;
+      }
+
+      // ── Tab hidden (switched away) ────────────────────────────
       if (!TAB_GUARDED_STATES.has(currentStateRef.current)) return;
       // During ENV_CHECK: reset the clean-stay timer so they must stay 12s straight
       if (currentStateRef.current === "ENV_CHECK") {
@@ -401,10 +506,29 @@ export function useInterview(sessionId: string = "default-session") {
       const count = tabSwitchCountRef.current;
       setTabSwitchWarning({ count, max: TAB_SWITCH_LIMIT });
       send({ type: "event", payload: "tab_switch", data: { count } });
+
       if (count >= TAB_SWITCH_LIMIT) {
+        // Hard limit reached — terminate immediately
         setIsTerminated(true);
-        send({ type: "event", payload: "end_interview", data: { reason: "tab_switch_limit" } });
+        send({
+          type: "event",
+          payload: "end_interview",
+          data: { reason: "tab_switch_limit" },
+        });
         setTimeout(() => socketRef.current?.close(), 150);
+      } else {
+        // Start 10s countdown — if they don't come back, terminate
+        if (tabReturnTimerRef.current) clearTimeout(tabReturnTimerRef.current);
+        tabReturnTimerRef.current = setTimeout(() => {
+          tabReturnTimerRef.current = null;
+          setIsTerminated(true);
+          send({
+            type: "event",
+            payload: "end_interview",
+            data: { reason: "tab_away_timeout" },
+          });
+          setTimeout(() => socketRef.current?.close(), 150);
+        }, TAB_AWAY_TERMINATE_MS);
       }
     };
     visibilityHandlerRef.current = handleVisibilityChange;
@@ -431,7 +555,10 @@ export function useInterview(sessionId: string = "default-session") {
     screenShareLostPendingRef.current = false;
     // Remove tab switch listener and reset counter
     if (visibilityHandlerRef.current) {
-      document.removeEventListener("visibilitychange", visibilityHandlerRef.current);
+      document.removeEventListener(
+        "visibilitychange",
+        visibilityHandlerRef.current,
+      );
       visibilityHandlerRef.current = null;
     }
     tabSwitchCountRef.current = 0;
@@ -439,6 +566,18 @@ export function useInterview(sessionId: string = "default-session") {
     if (envCheckTimerRef.current) {
       clearTimeout(envCheckTimerRef.current);
       envCheckTimerRef.current = null;
+    }
+    if (tabReturnTimerRef.current) {
+      clearTimeout(tabReturnTimerRef.current);
+      tabReturnTimerRef.current = null;
+    }
+    if (codeSyncTimerRef.current) {
+      clearTimeout(codeSyncTimerRef.current);
+      codeSyncTimerRef.current = null;
+    }
+    if (frameWorkerRef.current) {
+      frameWorkerRef.current.terminate();
+      frameWorkerRef.current = null;
     }
   }, []);
 
@@ -453,10 +592,14 @@ export function useInterview(sessionId: string = "default-session") {
     violationReason,
     tabSwitchWarning,
     isTerminated,
+    questionData,
     isListening: isConnected && !isSpeaking,
     connect,
     disconnect,
     sendEvent,
+    sendCode,
+    setLastCopied,
+    getLastCopied,
     reshareScreen,
     stopScreenShare,
     acquireAndStartMedia,

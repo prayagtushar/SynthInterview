@@ -39,32 +39,29 @@ class CheatDetector:
             return None
 
     async def _analyze_with_gemini(self, frame_b64: str) -> Optional[Dict]:
-        """Uses Gemini Vision (Flash) to detect violations."""
+        """Uses Gemini Vision to detect violations."""
         prompt = """
         Analyze this screen frame from a technical interview.
         YOUR GOAL: Detect ACTIVE cheating. Do NOT be alarmist.
         
         RULES:
         1. IGNORE the taskbar, dock, or system tray. Pinned or background apps are NOT violations.
-        2. IGNORE the browser name/brand. Whether it's Brave, Chrome, or Edge doesn't matter.
+        2. IGNORE the browser name/brand.
         3. VIOLATIONS are ONLY:
            (a) A foreground window that is NOT the code editor or the SynthInterview tab.
-           (b) The browser has search engines (Google), AI sites (ChatGPT, Claude), or documentation (StackOverflow) visible in the ACTIVE tab or side-by-side.
+           (b) The browser has search engines, AI sites, or documentation visible in the ACTIVE tab or side-by-side.
            (c) The candidate is copying code from a non-editor source.
         
-        If you are unsure or the image is blurry, do NOT flag it as a violation.
+        If unsure, do NOT flag.
            
         Return ONLY a JSON object:
-        {
-          "is_violation": boolean,
-          "type": string ("EXTERNAL_APP", "SEARCH_SITE", "AI_ASSISTANT"),
-          "reason": string (short, 1-sentence description of the ACTIVE foreground violation)
-        }
+        { "is_violation": boolean, "type": string, "reason": string }
         """
         
+        # Use gemini-2.5-flash for vision analysis
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=[
                 types.Part.from_bytes(data=base64.b64decode(frame_b64), mime_type="image/jpeg"),
                 types.Part.from_text(text=prompt)

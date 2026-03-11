@@ -38,13 +38,13 @@ if firebase_cred_json:
     try:
         cred_dict = json.loads(firebase_cred_json)
         cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred, {'storageBucket': storage_bucket})
+        firebase_admin.initialize_app(cred, {"storageBucket": storage_bucket})
         db = firestore.client()
     except Exception as e:
         print(f"Firebase init error: {e}")
 else:
     try:
-        firebase_admin.initialize_app(options={'storageBucket': storage_bucket})
+        firebase_admin.initialize_app(options={"storageBucket": storage_bucket})
         db = firestore.client()
     except Exception as e:
         print(f"Firebase init (ADC) error: {e} — running without Firestore")
@@ -53,14 +53,14 @@ if db is None:
     print("WARNING: Firestore unavailable. Session data will not be persisted.")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_ID = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-native-audio-latest")
+MODEL_ID = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025")
 
 # Phases that require screen frame visibility
 SCREEN_REQUIRED_STATES = {AgentState.ENV_CHECK, AgentState.CODING}
 
 # ── Tools ─────────────────────────────────────────────────────────────────
 
-WARN_CANDIDATE_TOOL = {
+AGENT_TOOLS = {
     "function_declarations": [
         {
             "name": "warn_candidate",
@@ -70,17 +70,42 @@ WARN_CANDIDATE_TOOL = {
                 "properties": {
                     "reason": {
                         "type": "STRING",
-                        "description": "The reason for the warning (e.g., 'Spotify is open')."
+                        "description": "The reason for the warning (e.g., 'Spotify is open').",
                     }
                 },
-                "required": ["reason"]
-            }
-        }
+                "required": ["reason"],
+            },
+        },
+        {
+            "name": "advance_phase",
+            "description": (
+                "Advances the interview to the next phase when the current phase is complete. "
+                "Call this tool instead of saying trigger phrases. The allowed target_state values "
+                "depend on the current phase: PROBLEM_DELIVERY->THINK_TIME, THINK_TIME->APPROACH_LISTEN, "
+                "APPROACH_LISTEN->CODING, CODING->TESTING, TESTING->OPTIMIZATION, OPTIMIZATION->COMPLETED, "
+                "CODING->HINT_DELIVERY (for hints), HINT_DELIVERY->CODING (after hint given)."
+            ),
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "target_state": {
+                        "type": "STRING",
+                        "description": "The state to transition to (e.g. 'APPROACH_LISTEN', 'CODING', 'TESTING').",
+                    },
+                    "reason": {
+                        "type": "STRING",
+                        "description": "Brief reason for the transition (e.g. 'candidate confirmed understanding').",
+                    },
+                },
+                "required": ["target_state"],
+            },
+        },
     ]
 }
 
 
 # ── Models ─────────────────────────────────────────────────────────────────
+
 
 class SessionConfig(BaseModel):
     candidateEmail: str
@@ -88,6 +113,7 @@ class SessionConfig(BaseModel):
     topics: List[str] = []
     questionId: Optional[str] = None
     timeLimit: int = 45
+
 
 class SessionResponse(BaseModel):
     sessionId: str
@@ -101,28 +127,40 @@ class SessionResponse(BaseModel):
 
 # ── REST ───────────────────────────────────────────────────────────────────
 
+
 @app.get("/")
 async def root():
     return {"service": "SynthInterview API", "version": "0.2.0", "status": "running"}
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
 
 @app.post("/sessions", response_model=SessionResponse)
 async def create_session(config: SessionConfig):
     if not db:
         raise HTTPException(status_code=503, detail="Firestore unavailable")
     session_id = str(uuid.uuid4())
-    question = get_question(config.questionId) if config.questionId else select_question_for_session(config.difficulty, config.topics)
+    question = (
+        get_question(config.questionId)
+        if config.questionId
+        else select_question_for_session(config.difficulty, config.topics)
+    )
     session_data = {
-        "sessionId": session_id, "candidateEmail": config.candidateEmail,
-        "difficulty": config.difficulty, "topics": config.topics,
-        "questionId": question["id"], "timeLimit": config.timeLimit,
-        "createdAt": datetime.utcnow().isoformat(), "status": "IDLE",
+        "sessionId": session_id,
+        "candidateEmail": config.candidateEmail,
+        "difficulty": config.difficulty,
+        "topics": config.topics,
+        "questionId": question["id"],
+        "timeLimit": config.timeLimit,
+        "createdAt": datetime.utcnow().isoformat(),
+        "status": "IDLE",
     }
     db.collection("sessions").document(session_id).set(session_data)
     return session_data
+
 
 @app.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str):
@@ -133,13 +171,16 @@ async def get_session(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
     return doc.to_dict()
 
+
 @app.get("/questions")
 async def list_questions():
     from app.questions import QUESTIONS
+
     return list(QUESTIONS.values())
 
 
 # ── WebSocket Live Interview ───────────────────────────────────────────────
+
 
 @app.websocket("/ws/live/{session_id}")
 async def live_socket(websocket: WebSocket, session_id: str) -> None:
@@ -157,39 +198,48 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             else:
                 question = get_question("two-sum")
                 session_info = {
-                    "candidateEmail": "guest@demo.com", "difficulty": "Easy",
-                    "topics": ["Arrays", "HashMaps"], "questionId": question["id"],
+                    "candidateEmail": "guest@demo.com",
+                    "difficulty": "Easy",
+                    "topics": ["Arrays", "HashMaps"],
+                    "questionId": question["id"],
                 }
-                db.collection("sessions").document(session_id).set({
-                    **session_info, "sessionId": session_id,
-                    "createdAt": datetime.utcnow().isoformat(), "status": "IDLE",
-                })
+                db.collection("sessions").document(session_id).set(
+                    {
+                        **session_info,
+                        "sessionId": session_id,
+                        "createdAt": datetime.utcnow().isoformat(),
+                        "status": "IDLE",
+                    }
+                )
         if session_info is None:
             # No Firestore — use in-memory defaults for local dev
             question = get_question("two-sum")
             session_info = {
-                "candidateEmail": "guest@demo.com", "difficulty": "Easy",
-                "topics": ["Arrays", "HashMaps"], "questionId": question["id"],
+                "candidateEmail": "guest@demo.com",
+                "difficulty": "Easy",
+                "topics": ["Arrays", "HashMaps"],
+                "questionId": question["id"],
             }
 
         question_id = session_info.get("questionId", "two-sum")
         question = get_question(question_id)
 
         agent = InterviewAgent(session_id=session_id, db=db, question=question)
-        agent.metadata.update({
-            "difficulty": session_info.get("difficulty", "Medium"),
-            "questionId": question["id"],
-            "topics": session_info.get("topics", []),
-            "candidateEmail": session_info.get("candidateEmail", "anonymous"),
-        })
+        agent.metadata.update(
+            {
+                "difficulty": session_info.get("difficulty", "Medium"),
+                "questionId": question["id"],
+                "topics": session_info.get("topics", []),
+                "candidateEmail": session_info.get("candidateEmail", "anonymous"),
+            }
+        )
+
+        # ── Try to hydrate from Firestore for reconnection ─────────
+        was_hydrated = agent.hydrate_from_firestore()
 
         # ── Connect to Gemini ──────────────────────────────────────────
         system_instr = _build_system_instruction(session_info, question)
         gemini = GeminiLiveClient(GEMINI_API_KEY, MODEL_ID)
-        await gemini.connect(
-            system_instruction=system_instr,
-            tools=[WARN_CANDIDATE_TOOL]
-        )
 
         # ── Cheat Detector ─────────────────────────────────────────────
         bucket = None
@@ -197,26 +247,43 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             bucket = storage.bucket()
         except Exception as e:
             print(f"Storage bucket error: {e}")
-        
+
         cheat_detector = CheatDetector(
-            session_id=session_id,
-            db=db,
-            bucket=bucket,
-            api_key=GEMINI_API_KEY
+            session_id=session_id, db=db, bucket=bucket, api_key=GEMINI_API_KEY
         )
 
-        # ── GREETING ───────────────────────────────────────────────────
-        greeting_msg = await agent.update_state(AgentState.GREETING)
-        await websocket.send_json({
-            "type": "state_update",
-            "payload": agent.current_state.value,
-            "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
-            "metadata": agent.metadata
-        })
-        # Push the initial state instruction and greeting
-        await gemini.send_text(f"[SYSTEM] {agent.get_system_instruction()}")
-        if greeting_msg:
-            await gemini.send_text(greeting_msg)
+        # Run Gemini connect in parallel with CheatDetector init
+        await gemini.connect(system_instruction=system_instr)
+
+        # ── GREETING or RESUME ─────────────────────────────────────────
+        if was_hydrated:
+            # Reconnection: resume from stored state
+            await websocket.send_json(
+                {
+                    "type": "state_update",
+                    "payload": agent.current_state.value,
+                    "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
+                    "metadata": agent.metadata,
+                }
+            )
+            await gemini.send_text(
+                f"[SYSTEM] {agent.get_system_instruction()}\n"
+                f"[SYSTEM] The candidate has reconnected. Resume the interview from the {agent.current_state.value} phase. "
+                "Briefly acknowledge the reconnection and continue naturally."
+            )
+        else:
+            greeting_msg = await agent.update_state(AgentState.GREETING)
+            await websocket.send_json(
+                {
+                    "type": "state_update",
+                    "payload": agent.current_state.value,
+                    "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
+                    "metadata": agent.metadata,
+                }
+            )
+            await gemini.send_text(f"[SYSTEM] {agent.get_system_instruction()}")
+            if greeting_msg:
+                await gemini.send_text(greeting_msg)
 
         # ── 1) RECEIVER: Gemini → browser ─────────────────────────────
         async def receive_from_gemini():
@@ -230,26 +297,11 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
                     if message["type"] == "tool_call":
                         call = message["payload"]
-                        if call["name"] == "warn_candidate":
-                            reason = call["args"].get("reason", "Unknown violation")
-                            print(f"Tool Call: warn_candidate({reason})")
-                            # We can just let Gemini speak the warning, 
-                            # but we could also do side effects here if needed.
-                            await gemini.send_tool_response(call["id"], call["name"], "Warning issued.")
+                        result = await _handle_tool_call(call, agent, websocket, gemini)
+                        await gemini.send_tool_response(call["id"], call["name"], result)
                         continue
 
                     await websocket.send_json(message)
-
-                    # Accumulate text and detect state-change keywords
-                    if message["type"] == "text":
-                        text_buffer += message["payload"]
-                        scripted = await _detect_state_transitions(
-                            text_buffer.lower(), agent, websocket
-                        )
-                        if scripted:
-                            # State changed: push the NEW state's system instructions immediately
-                            await gemini.send_text(f"[SYSTEM] {agent.get_system_instruction()}")
-                            await gemini.send_text(scripted)
 
             except asyncio.CancelledError:
                 pass
@@ -257,7 +309,60 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 print(f"Receive loop error: {e}")
 
         # ── 2) FORWARDER: browser → Gemini ─────────────────────────────
+        analysis_task: Optional[asyncio.Task] = None
+
+        async def analyze_frame_bg(frame_data: str):
+            """Background vision analysis task to avoid blocking the receiver loop."""
+            try:
+                # Update analysis frequency based on state
+                if agent.current_state == AgentState.ENV_CHECK:
+                    cheat_detector.analysis_interval = 3
+                else:
+                    cheat_detector.analysis_interval = 10
+
+                v = await cheat_detector.process_frame(frame_data)
+                if not v:
+                    return
+
+                # Send results to Gemini feedback loop
+                if agent.current_state == AgentState.ENV_CHECK:
+                    await gemini.send_text(
+                        f"[SYSTEM] Environment issue detected: {v.get('reason', 'Unknown issue')}. "
+                        "Tell the candidate clearly what they need to fix (e.g., 'Close your other tabs') and wait."
+                    )
+                else:
+                    severity = v.get("severity", "FLAG")
+                    reason = v.get("reason", "Suspicious activity")
+
+                    if severity == "HARD":
+                        scripted = await agent.handle_event("cheat_detected", v)
+                        agent.metadata["cheat_reason"] = reason
+                        await websocket.send_json(
+                            {
+                                "type": "state_update",
+                                "payload": agent.current_state.value,
+                                "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
+                                "metadata": agent.metadata,
+                            }
+                        )
+                        await gemini.send_text(
+                            f"[SYSTEM] [CRITICAL VIOLATION] {reason}. Warn formally."
+                        )
+                        if scripted:
+                            await gemini.send_text(scripted)
+                    elif severity == "SOFT":
+                        await gemini.send_text(
+                            f"[SYSTEM] [VIOLATION] Detected: {reason}. Warn them."
+                        )
+                    else:
+                        await gemini.send_text(
+                            f"[SYSTEM] [NOTICE] Potential distraction: {reason}. Mention if worth noting."
+                        )
+            except Exception as e:
+                print(f"Background analysis task failed: {e}")
+
         async def forward_client_to_gemini():
+            nonlocal analysis_task
             try:
                 while True:
                     raw = await websocket.receive_text()
@@ -266,99 +371,108 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
                     if msg_type == "event":
                         event_type = data.get("payload")
-                        old_state = agent.current_state
-                        scripted = await agent.handle_event(event_type, data.get("data"))
-                        new_state = agent.current_state
-                        
-                        await websocket.send_json({
-                            "type": "state_update",
-                            "payload": new_state.value,
-                            "screenRequired": new_state in SCREEN_REQUIRED_STATES,
-                            "metadata": agent.metadata,
-                        })
+                        event_data = data.get("data")
 
-                        # If state changed, ALWAYS update Gemini's instructions
+                        # ── Candidate signals: route to AI, NOT to state machine ──────
+                        _SIGNAL_EVENTS = {
+                            "candidate_signal",
+                            "candidate_ready",
+                            "approach_accepted",
+                            "coding_finished",
+                            "tests_passed",
+                            "optimization_finished",
+                            "timer_expired",
+                        }
+
+                        if event_type in _SIGNAL_EVENTS:
+                            if event_type == "candidate_signal" and isinstance(event_data, dict):
+                                signal_text = event_data.get(
+                                    "signal", "The candidate pressed a button."
+                                )
+                            else:
+                                signal_text = f"The candidate triggered '{event_type}'. Evaluate if ready to advance phase."
+                            await gemini.send_text(
+                                f"[SYSTEM] {signal_text} Output [ADVANCE: <STATE>] if appropriate."
+                            )
+                            continue
+
+                        # ── Legitimate direct events ───
+                        old_state = agent.current_state
+                        scripted = await agent.handle_event(event_type, event_data)
+                        new_state = agent.current_state
+
+                        await websocket.send_json(
+                            {
+                                "type": "state_update",
+                                "payload": new_state.value,
+                                "screenRequired": new_state in SCREEN_REQUIRED_STATES,
+                                "metadata": agent.metadata,
+                            }
+                        )
+
                         if new_state != old_state:
                             await gemini.send_text(f"[SYSTEM] {agent.get_system_instruction()}")
-                        
+
                         if scripted:
-                            # Interrupt ongoing speech for time-sensitive events
                             if event_type in ("tab_switch", "screen_share_ended"):
                                 await gemini.send_text_urgent(scripted)
                             else:
                                 await gemini.send_text(scripted)
 
                     elif msg_type == "audio":
-                        # print(f"Audio chunk received: {len(data['payload'])} bytes")
                         await gemini.send_audio(data["payload"])
-
-                    elif msg_type == "frame":
-                        # print(f"Frame received: {len(data['payload'])} bytes")
-                        await gemini.send_frame(data["payload"])
-
-                        if agent.current_state == AgentState.ENV_CHECK:
-                            # Only detect violations — frontend time-based timer (12s clean-stay)
-                            # sends workspace_clean to auto-proceed. Faster analysis interval.
-                            cheat_detector.analysis_interval = 3
-                            v = await cheat_detector.process_frame(data["payload"])
-                            if v:
-                                await gemini.send_text(
-                                    f"[SYSTEM] Environment issue detected: {v['reason']}. "
-                                    "Tell the candidate clearly what to close, then wait."
-                                )
-
-                        elif agent.current_state == AgentState.CODING:
-                            v = await cheat_detector.process_frame(data["payload"])
-                            if v:
-                                severity = v["severity"]
-                                reason = v["reason"]
-                                if severity == "FLAG":
-                                    await gemini.send_text(
-                                        f"[SYSTEM] [NOTICE] Possible distraction detected: {reason}. "
-                                        "Gently remind the candidate to stay focused on the editor."
-                                    )
-                                elif severity == "SOFT":
-                                    await gemini.send_text(
-                                        f"[SYSTEM] [VIOLATION] Detected: {reason}. "
-                                        "Briefly warn the candidate to close it."
-                                    )
-                                elif severity == "HARD":
-                                    scripted = await agent.handle_event("cheat_detected", v)
-                                    agent.metadata["cheat_reason"] = reason
-                                    await websocket.send_json({
-                                        "type": "state_update",
-                                        "payload": agent.current_state.value,
-                                        "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
-                                        "metadata": agent.metadata
-                                    })
-                                    await gemini.send_text(f"[SYSTEM] [CRITICAL VIOLATION] {reason}. Issue a formal warning.")
-                                    if scripted:
-                                        await gemini.send_text(scripted)
 
                     elif msg_type == "text":
                         await gemini.send_text(data["payload"])
+
+                    elif msg_type == "code_update":
+                        code_text = data.get("payload", "")
+                        agent._candidate_code = code_text
+                        if agent.current_state in (
+                            AgentState.CODING,
+                            AgentState.TESTING,
+                            AgentState.OPTIMIZATION,
+                            AgentState.HINT_DELIVERY,
+                        ):
+                            snippet = code_text[-3000:] if len(code_text) > 3000 else code_text
+                            await gemini.send_text(
+                                f"[SYSTEM: CANDIDATE CODE UPDATE]\n```\n{snippet}\n```"
+                            )
+
+                    elif msg_type == "frame":
+                        # Perform vision analysis if required and not already busy
+                        if agent.current_state in (AgentState.ENV_CHECK, AgentState.CODING):
+                            if analysis_task is None or analysis_task.done():
+                                analysis_task = asyncio.create_task(
+                                    analyze_frame_bg(data["payload"])
+                                )
 
             except WebSocketDisconnect:
                 print(f"Client disconnected: {session_id}")
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                print(f"Forward loop error: {e}")
+                print(f"Forwarder error: {e}")
+            finally:
+                if analysis_task:
+                    analysis_task.cancel()
 
         # ── 3) TIMER WATCHER: agent pending messages ───────────────────
         async def watch_agent_timer():
             try:
                 while True:
                     await asyncio.sleep(1)
-                    if hasattr(agent, '_pending_timer_msg') and agent._pending_timer_msg:
+                    if hasattr(agent, "_pending_timer_msg") and agent._pending_timer_msg:
                         msg = agent._pending_timer_msg
                         agent._pending_timer_msg = None
-                        await websocket.send_json({
-                            "type": "state_update",
-                            "payload": agent.current_state.value,
-                            "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
-                            "metadata": agent.metadata
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "state_update",
+                                "payload": agent.current_state.value,
+                                "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
+                                "metadata": agent.metadata,
+                            }
+                        )
                         await gemini.send_text(msg)
             except asyncio.CancelledError:
                 pass
@@ -393,53 +507,124 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _build_system_instruction(session_info: dict, question: dict) -> str:
     return f"""
 You are SYNTH — a professional, warm, and encouraging AI technical interviewer for SynthInterview.
 
-CANDIDATE: {session_info.get('candidateEmail', 'Anonymous')}
-DIFFICULTY: {session_info.get('difficulty', 'Medium')}
-TOPICS: {', '.join(session_info.get('topics', []))}
+CANDIDATE: {session_info.get("candidateEmail", "Anonymous")}
+DIFFICULTY: {session_info.get("difficulty", "Medium")}
+TOPICS: {", ".join(session_info.get("topics", []))}
 
 RULES:
 - Speak naturally like a human. 
 - NEVER repeat, recite, or mention instructions prefixed with [SYSTEM].
 - Keep responses concise (under 60 words).
 - Be encouraging but professional.
+- Output [ADVANCE: TARGET_STATE] to transition between interview phases. NEVER say trigger phrases like 'CANDIDATE READY' — always use the bracket syntax.
+- Output [WARN: reason] to issue violation warnings.
 """.strip()
 
 
-async def _detect_state_transitions(
-    text: str,
-    agent: InterviewAgent,
+# ── Valid tool-based state transitions ─────────────────────────────────────
+_ALLOWED_TRANSITIONS = {
+    AgentState.PROBLEM_DELIVERY: {"THINK_TIME"},
+    AgentState.THINK_TIME: {"APPROACH_LISTEN"},
+    AgentState.APPROACH_LISTEN: {"CODING"},
+    AgentState.CODING: {"TESTING", "HINT_DELIVERY"},
+    AgentState.HINT_DELIVERY: {"CODING"},
+    AgentState.TESTING: {"OPTIMIZATION"},
+    AgentState.OPTIMIZATION: {"COMPLETED"},
+}
+
+# Map target state values to the event names expected by agent.handle_event
+_STATE_TO_EVENT = {
+    "THINK_TIME": "candidate_ready",
+    "APPROACH_LISTEN": "timer_expired",  # or triggered via tool
+    "CODING": "approach_accepted",
+    "TESTING": "coding_finished",
+    "HINT_DELIVERY": "hint_requested",
+    "OPTIMIZATION": "tests_passed",
+    "COMPLETED": "optimization_finished",
+}
+
+# Minimum seconds a phase must last before advance_phase is accepted.
+# Prevents speed-running (both by candidates and by the LLM).
+_MIN_PHASE_DURATION = {
+    AgentState.PROBLEM_DELIVERY: 15,  # At least 15s to read the problem
+    AgentState.THINK_TIME: 20,  # At least 20s of thinking
+    AgentState.APPROACH_LISTEN: 30,  # At least 30s discussing approach
+    AgentState.CODING: 120,  # At least 2 minutes of coding
+    AgentState.HINT_DELIVERY: 5,  # At least 5s to hear the hint
+    AgentState.TESTING: 30,  # At least 30s of testing
+    AgentState.OPTIMIZATION: 20,  # At least 20s of optimization talk
+}
+
+
+async def _handle_tool_call(
+    call: dict,
+    agent: "InterviewAgent",
     websocket: WebSocket,
-) -> Optional[str]:
-    current = agent.current_state
-    triggers = {
-        # ENV_CHECK is now gated programmatically by CheatDetector — no verbal trigger
-        AgentState.PROBLEM_DELIVERY: ("candidate ready",       "candidate_ready"),
-        AgentState.APPROACH_LISTEN:  ("approach accepted",     "approach_accepted"),
-        AgentState.CODING:           ("coding complete",       "coding_finished"),
-        AgentState.HINT_DELIVERY:    ("hint delivered",        "hint_given"),
-        AgentState.TESTING:          ("tests passed",          "tests_passed"),
-        AgentState.OPTIMIZATION:     ("optimization complete", "optimization_finished"),
-    }
-    scripted = None
-    if current in triggers:
-        phrase, event = triggers[current]
-        if phrase in text:
-            scripted = await agent.handle_event(event, None)
-            await websocket.send_json({
+    gemini: GeminiLiveClient,
+) -> str:
+    """Dispatches Gemini tool calls and returns a result string."""
+    name = call["name"]
+    args = call.get("args", {})
+
+    if name == "warn_candidate":
+        reason = args.get("reason", "Unknown violation")
+        print(f"Tool Call: warn_candidate({reason})")
+        return "Warning issued."
+
+    elif name == "advance_phase":
+        target_str = args.get("target_state", "")
+        reason = args.get("reason", "")
+        allowed = _ALLOWED_TRANSITIONS.get(agent.current_state, set())
+
+        if target_str not in allowed:
+            msg = f"Cannot transition from {agent.current_state.value} to {target_str}. Allowed: {allowed or 'none'}."
+            print(f"advance_phase REJECTED: {msg}")
+            return msg
+
+        # ── Enforce minimum phase duration ───────────────────────────
+        min_secs = _MIN_PHASE_DURATION.get(agent.current_state, 0)
+        if min_secs > 0:
+            from datetime import datetime
+
+            elapsed = (datetime.utcnow() - agent.last_transition_time).total_seconds()
+            if elapsed < min_secs:
+                remaining = int(min_secs - elapsed)
+                msg = (
+                    f"Too early to advance from {agent.current_state.value}. "
+                    f"Minimum {min_secs}s required, only {int(elapsed)}s elapsed. "
+                    f"Wait {remaining}s more. Continue the current phase naturally."
+                )
+                print(f"advance_phase THROTTLED: {msg}")
+                return msg
+
+        event = _STATE_TO_EVENT.get(target_str)
+        if not event:
+            return f"No event mapping for target {target_str}."
+
+        # Handle the hint_given special case: coming back from HINT_DELIVERY
+        if agent.current_state == AgentState.HINT_DELIVERY and target_str == "CODING":
+            event = "hint_given"
+
+        scripted = await agent.handle_event(event, None)
+        await websocket.send_json(
+            {
                 "type": "state_update",
                 "payload": agent.current_state.value,
                 "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
-            })
-    if "cheat detected" in text and current != AgentState.FLAGGED:
-        scripted = await agent.handle_event("cheat_detected", None)
-        await websocket.send_json({
-            "type": "state_update",
-            "payload": agent.current_state.value,
-            "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
-            "metadata": agent.metadata
-        })
-    return scripted
+                "metadata": agent.metadata,
+            }
+        )
+        # Push the new state's system instructions
+        await gemini.send_text(f"[SYSTEM] {agent.get_system_instruction()}")
+        if scripted:
+            await gemini.send_text(scripted)
+
+        print(f"advance_phase OK: -> {agent.current_state.value} ({reason})")
+        return f"Phase advanced to {agent.current_state.value}."
+
+    return f"Unknown tool: {name}"
