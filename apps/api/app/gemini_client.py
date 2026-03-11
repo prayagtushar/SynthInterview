@@ -7,10 +7,7 @@ from google.genai import types
 
 class GeminiLiveClient:
     def __init__(self, api_key: str, model_id: str):
-        self.client = genai.Client(
-            api_key=api_key,
-            http_options={"api_version": "v1alpha"}
-        )
+        self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
         self.model_id = model_id
         self._session_ctx = None
         self.session = None
@@ -26,7 +23,9 @@ class GeminiLiveClient:
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             system_instruction=system_instruction,
-            tools=tools,
+            thinking_config=types.ThinkingConfig(
+                thinking_budget=0,  # Disable thinking for fastest response
+            ),
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(
                     disabled=False,
@@ -36,9 +35,7 @@ class GeminiLiveClient:
                 )
             ),
         )
-        self._session_ctx = self.client.aio.live.connect(
-            model=self.model_id, config=config
-        )
+        self._session_ctx = self.client.aio.live.connect(model=self.model_id, config=config)
         self.session = await self._session_ctx.__aenter__()
         self._turn_complete.set()  # ready for first send
         # Start two independent sender tasks
@@ -71,7 +68,7 @@ class GeminiLiveClient:
                 if kind == "_stop":
                     return
                 try:
-                    await asyncio.wait_for(self._turn_complete.wait(), timeout=30)
+                    await asyncio.wait_for(self._turn_complete.wait(), timeout=15)
                     self._turn_complete.clear()
                     await self.session.send_client_content(
                         turns={"role": "user", "parts": [{"text": payload}]},
@@ -117,6 +114,23 @@ class GeminiLiveClient:
 
     async def send_tool_response(self, call_id: str, name: str, output: Any) -> None:
         """Sends the result of a tool call back to Gemini."""
+        if call_id.startswith("text-command"):
+            # Acknowledge the pseudo-tool call via text
+            await self.session.send_client_content(
+                turns=[
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=f"[SYSTEM] Task '{name}' completed. Result: {output}"
+                            )
+                        ],
+                    )
+                ],
+                turn_complete=True,
+            )
+            return
+
         await self.session.send_client_content(
             turns=[
                 types.Content(
@@ -148,11 +162,44 @@ class GeminiLiveClient:
                     if sc and sc.model_turn:
                         for part in sc.model_turn.parts:
                             if part.text:
-                                yield {"type": "text", "payload": part.text}
+                                text = part.text
+                                import re
+
+                                # Intercept [ADVANCE: STATE]
+                                advance_match = re.search(r"\[ADVANCE:\s*([^\]]+)\]", text)
+                                if advance_match:
+                                    target_state = advance_match.group(1).strip()
+                                    yield {
+                                        "type": "tool_call",
+                                        "payload": {
+                                            "name": "advance_phase",
+                                            "args": {
+                                                "target_state": target_state,
+                                                "reason": "Text command",
+                                            },
+                                            "id": "text-command-adv",
+                                        },
+                                    }
+                                    text = text.replace(advance_match.group(0), "").strip()
+
+                                # Intercept [WARN: reason]
+                                warn_match = re.search(r"\[WARN:\s*([^\]]+)\]", text)
+                                if warn_match:
+                                    reason = warn_match.group(1).strip()
+                                    yield {
+                                        "type": "tool_call",
+                                        "payload": {
+                                            "name": "warn_candidate",
+                                            "args": {"reason": reason},
+                                            "id": "text-command-warn",
+                                        },
+                                    }
+                                    text = text.replace(warn_match.group(0), "").strip()
+
+                                if text:
+                                    yield {"type": "text", "payload": text}
                             if part.inline_data:
-                                audio_b64 = base64.b64encode(
-                                    part.inline_data.data
-                                ).decode("utf-8")
+                                audio_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
                                 yield {"type": "audio", "payload": audio_b64}
                             if part.function_call:
                                 yield {
