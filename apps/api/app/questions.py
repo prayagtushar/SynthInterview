@@ -123,8 +123,12 @@ Output: []""",
             {"input": "[1,2]", "output": "[2,1]"},
             {"input": "[]", "output": "[]"}
         ],
-        # Linked list requires custom data structure — not auto-executable via simple solve()
-        "structured_tests": None,
+        "structured_tests": [
+            {"label": "TC1", "args": [[1,2,3,4,5]], "expected": [5,4,3,2,1]},
+            {"label": "TC2", "args": [[1,2]], "expected": [2,1]},
+            {"label": "TC3", "args": [[]], "expected": []},
+            {"label": "TC4 (hidden)", "args": [[9,8,7]], "expected": [7,8,9]},
+        ],
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(1)"
     },
@@ -197,8 +201,13 @@ Output: [[""]]
         "testCases": [
             {"input": "[\"eat\",\"tea\",\"tan\",\"ate\",\"nat\",\"bat\"]", "output": "[[\"bat\"],[\"nat\",\"tan\"],[\"ate\",\"eat\",\"tea\"]]"},
         ],
-        # Group anagrams output order is non-deterministic — skip auto-grading
-        "structured_tests": None,
+        "structured_tests": [
+            {"label": "TC1", "args": [["eat","tea","tan","ate","nat","bat"]], "expected": [["bat"],["nat","tan"],["ate","eat","tea"]]},
+            {"label": "TC2", "args": [[""]], "expected": [[""]]},
+            {"label": "TC3", "args": [["a"]], "expected": [["a"]]},
+            {"label": "TC4 (hidden)", "args": [["cab","tin","pew","duh","may","ill","buy","bar","max","doc"]], "expected": [["doc"],["bar"],["buy"],["ill"],["may"],["tin"],["cab"],["pew"],["max"],["duh"]]}
+        ],
+        "sort_compare": "deep",
         "optimalTimeComplexity": "O(n * k log k) where k is max string length",
         "optimalSpaceComplexity": "O(n * k)"
     },

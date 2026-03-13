@@ -32,7 +32,16 @@ export function useInterview(sessionId: string = 'default-session') {
 		count: number;
 		max: number;
 	} | null>(null);
+	const [visionViolation, setVisionViolation] = useState<{
+		box_2d: [number, number, number, number];
+		probability: number;
+		reason: string;
+	} | null>(null);
 	const [isTerminated, setIsTerminated] = useState(false);
+	const [sessionBlocked, setSessionBlocked] = useState<{
+		type: 'terminated' | 'completed';
+		reason: string;
+	} | null>(null);
 	const [resetKey, setResetKey] = useState(0);
 	const [greetingDone, setGreetingDone] = useState(false);
 	const [isMuted, setIsMuted] = useState(false);
@@ -40,10 +49,14 @@ export function useInterview(sessionId: string = 'default-session') {
 	const [scorecardData, setScorecardData] = useState<ScorecardData | null>(
 		null,
 	);
+	const [restoredCode, setRestoredCode] = useState<string | null>(null);
 
 	const socketRef = useRef<WebSocket | null>(null);
 	const isSpeakingRef = useRef(false);
 	const isMutedRef = useRef(false);
+	const isTerminatedRef = useRef(false);
+	const sessionBlockedRef = useRef(false);
+	const reconnectAttemptRef = useRef(0);
 	const screenShareLostPendingRef = useRef(false);
 	const codeSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
 	const lastCopiedTextRef = useRef<string>('');
@@ -174,6 +187,7 @@ export function useInterview(sessionId: string = 'default-session') {
 		screenShareLostPendingRef.current = false;
 		setViolationReason(null);
 		setTabSwitchWarning(null);
+		setVisionViolation(null);
 		setIsTerminated(false);
 		setQuestionData(null);
 		setScorecardData(null);
@@ -187,6 +201,7 @@ export function useInterview(sessionId: string = 'default-session') {
 
 		ws.onopen = () => {
 			setIsConnected(true);
+			reconnectAttemptRef.current = 0; // Reset on successful connect
 			sendEvent('candidate_connect');
 			startMonitoring();
 		};
@@ -194,6 +209,16 @@ export function useInterview(sessionId: string = 'default-session') {
 		ws.onmessage = (ev) => {
 			const data = JSON.parse(ev.data);
 			console.log('[WS] Message:', data.type, data.payload || '');
+
+			if (data.type === 'session_blocked') {
+				console.log('[WS] Session blocked:', data.payload, data.reason);
+				sessionBlockedRef.current = true;
+				setSessionBlocked({
+					type: data.payload === 'terminated' ? 'terminated' : 'completed',
+					reason: data.reason || 'This session has ended.',
+				});
+				return;
+			}
 
 			if (data.type === 'text') {
 				setFeedback((prev) => [...prev, data.payload]);
@@ -210,12 +235,30 @@ export function useInterview(sessionId: string = 'default-session') {
 						data.metadata?.terminated_screen_loss)
 				) {
 					setIsTerminated(true);
+					isTerminatedRef.current = true;
 				}
 				if (data.payload === 'SCREEN_NOT_VISIBLE') setScreenLost(true);
 				if (data.metadata?.question) setQuestionData(data.metadata.question);
+				if (data.violation) {
+					console.log('[Vision] Violation details received:', data.violation);
+					setVisionViolation({
+						box_2d: data.violation.box_2d,
+						probability: data.violation.probability,
+						reason: data.violation.reason,
+					});
+				} else {
+					setVisionViolation(null);
+				}
 				stopPlayback();
 			} else if (data.type === 'scorecard') {
 				setScorecardData(data.payload);
+			} else if (data.type === 'restore_code') {
+				console.log(
+					'[WS] Restoring code from server:',
+					data.payload?.length,
+					'chars',
+				);
+				setRestoredCode(data.payload);
 			} else if (data.type === 'turn_complete') {
 				setIsSpeaking(false);
 				isSpeakingRef.current = false;
@@ -235,9 +278,25 @@ export function useInterview(sessionId: string = 'default-session') {
 			}
 		};
 
-		ws.onclose = () => {
+		ws.onclose = (ev) => {
 			setIsConnected(false);
 			stopMonitoring();
+			// Auto-reconnect on unexpected disconnect (not terminated/blocked)
+			if (
+				!sessionBlockedRef.current &&
+				!isTerminatedRef.current &&
+				reconnectAttemptRef.current < 5
+			) {
+				reconnectAttemptRef.current += 1;
+				const delay = Math.min(2000 * reconnectAttemptRef.current, 10000);
+				console.log(
+					`[WS] Unexpected disconnect. Auto-reconnecting in ${delay}ms... (attempt ${reconnectAttemptRef.current})`,
+				);
+				setTimeout(() => {
+					console.log('[WS] Reconnecting...');
+					connect();
+				}, delay);
+			}
 		};
 	}, [
 		sessionId,
@@ -302,6 +361,9 @@ export function useInterview(sessionId: string = 'default-session') {
 		questionData,
 		scorecardData,
 		isMuted,
+		visionViolation,
+		sessionBlocked,
+		restoredCode,
 		isListening: isConnected && !isSpeaking,
 		connect,
 		disconnect,

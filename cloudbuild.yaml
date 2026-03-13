@@ -25,6 +25,10 @@ steps:
         "gcr.io/$PROJECT_ID/synth-interview-web:$COMMIT_SHA",
         "-f",
         "apps/web/Dockerfile",
+        "--build-arg",
+        "NEXT_PUBLIC_API_URL=$_NEXT_PUBLIC_API_URL",
+        "--build-arg",
+        "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$PROJECT_ID",
         ".",
       ]
     id: "build-web"
