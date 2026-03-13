@@ -6,9 +6,13 @@ services:
     env_file:
       - .env
       - apps/api/.env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     ports:
       - "8000:8000"
     restart: unless-stopped
+    depends_on:
+      - redis
 
   web:
     build:
@@ -23,4 +27,10 @@ services:
       - api
     ports:
       - "3000:3000"
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
     restart: unless-stopped

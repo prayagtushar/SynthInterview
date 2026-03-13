@@ -1,126 +1,31 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
 import { useSearchParams } from "next/navigation";
-import Editor from "@monaco-editor/react";
+import { type OnMount } from "@monaco-editor/react";
 import { useInterview } from "../../lib/useInterview";
 import {
-  Mic,
-  MicOff,
-  Monitor,
-  Play,
-  ChevronRight,
-  Terminal,
-  User,
-  CircleDot,
-  Lightbulb,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  FileText,
-} from "lucide-react";
+  LANGUAGES,
+  DEFAULT_CODE,
+  STATE_COLORS,
+  STATE_ICONS,
+  MANUAL_TRANSITIONS,
+} from "../../lib/constants";
+import { ScorecardData, RunResult, ExecResult } from "../../lib/types";
+import { generateProblemComments } from "../../lib/interviewUtils";
 
-// State badge colors
-const STATE_COLORS: Record<string, string> = {
-  IDLE: "bg-gray-800 text-gray-400",
-  GREETING: "bg-blue-900/50 text-blue-300",
-  ENV_CHECK: "bg-yellow-900/50 text-yellow-300",
-  PROBLEM_DELIVERY: "bg-purple-900/50 text-purple-300",
-  THINK_TIME: "bg-indigo-900/50 text-indigo-300",
-  APPROACH_LISTEN: "bg-cyan-900/50 text-cyan-300",
-  CODING: "bg-green-900/50 text-green-300",
-  HINT_DELIVERY: "bg-orange-900/50 text-orange-300",
-  TESTING: "bg-teal-900/50 text-teal-300",
-  OPTIMIZATION: "bg-pink-900/50 text-pink-300",
-  COMPLETED: "bg-emerald-900/50 text-emerald-300",
-  FLAGGED: "bg-red-900/50 text-red-300",
-};
-
-const STATE_ICONS: Record<string, React.ReactNode> = {
-  IDLE: <CircleDot size={12} />,
-  GREETING: <User size={12} />,
-  ENV_CHECK: <Monitor size={12} />,
-  PROBLEM_DELIVERY: <FileText size={12} />,
-  THINK_TIME: <span className="text-xs">💭</span>,
-  APPROACH_LISTEN: <span className="text-xs">🗣</span>,
-  CODING: <Play size={12} />,
-  HINT_DELIVERY: <Lightbulb size={12} />,
-  TESTING: <Terminal size={12} />,
-  OPTIMIZATION: <span className="text-xs">⚡</span>,
-  COMPLETED: <CheckCircle size={12} />,
-  FLAGGED: <AlertTriangle size={12} />,
-};
-
-// State transitions the user can manually trigger (for testing / button controls)
-const MANUAL_TRANSITIONS: Record<
-  string,
-  { label: string; event: string; icon: React.ReactNode }[]
-> = {
-  GREETING: [
-    {
-      label: "Screen Shared",
-      event: "screen_share_active",
-      icon: <Monitor size={12} />,
-    },
-  ],
-  ENV_CHECK: [
-    {
-      label: "Env is Clean",
-      event: "workspace_clean",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  PROBLEM_DELIVERY: [
-    {
-      label: "I Understand",
-      event: "candidate_ready",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  THINK_TIME: [
-    { label: "Skip Timer", event: "timer_expired", icon: <Play size={12} /> },
-  ],
-  APPROACH_LISTEN: [
-    {
-      label: "Accept Approach",
-      event: "approach_accepted",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  CODING: [
-    {
-      label: "Request Hint",
-      event: "hint_requested",
-      icon: <Lightbulb size={12} />,
-    },
-    {
-      label: "Done Coding",
-      event: "coding_finished",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  TESTING: [
-    {
-      label: "Tests Passed",
-      event: "tests_passed",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  OPTIMIZATION: [
-    {
-      label: "Done Optimizing",
-      event: "optimization_finished",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-  FLAGGED: [
-    {
-      label: "Acknowledged",
-      event: "warning_acknowledged",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
-};
+// Sub-components
+import { Sidebar } from "./Sidebar";
+import { Header, Banners } from "./Header";
+import { EditorPanel } from "./EditorPanel";
+import { RightPanel } from "./RightPanel";
+import { Overlays } from "./Overlays";
 
 export default function SessionView() {
   const searchParams = useSearchParams();
@@ -133,19 +38,92 @@ export default function SessionView() {
     isConnected,
     feedback,
     currentState,
+    screenLost,
+    isSpeaking,
+    isUserSpeaking,
+    violationReason,
+    tabSwitchWarning,
+    isTerminated,
+    questionData,
+    scorecardData,
+    isMuted,
+    resetKey,
+    greetingDone,
+    visionViolation,
+    sessionBlocked,
+    restoredCode,
     connect,
     disconnect,
     sendEvent,
+    sendCode,
+    toggleMute,
+    setLastCopied,
+    getLastCopied,
+    reshareScreen,
+    stopScreenShare,
+    acquireAndStartMedia,
   } = useInterview(sessionId);
 
-  const [isMuted, setIsMuted] = useState(false);
+  // Sync scorecard from WebSocket into local state
+  useEffect(() => {
+    if (scorecardData) {
+      setScorecard(scorecardData);
+      setActiveTab("scorecard");
+    }
+  }, [scorecardData]);
+
+  // Reset all local editor/session state when a new session begins
+  useEffect(() => {
+    if (resetKey === 0) return; // skip initial mount
+    setCode(DEFAULT_CODE["javascript"]);
+    setLanguage("javascript");
+    setExecResult(null);
+    setRunResult(null);
+    setShowTerminal(false);
+    setScorecard(null);
+    setActiveTab("feedback");
+    problemInjected.current = false;
+    problemHeaderLines.current = 0;
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore code from server on reconnection
+  useEffect(() => {
+    if (restoredCode) {
+      console.log(
+        "[Editor] Restoring code from server:",
+        restoredCode.length,
+        "chars",
+      );
+      setCode(restoredCode);
+    }
+  }, [restoredCode]);
+
   const [activeTab, setActiveTab] = useState<"feedback" | "scorecard">(
     "feedback",
   );
-  const [code, setCode] = useState(
-    `// Your solution here\n// The AI is watching and listening...\n\nfunction solve(nums, target) {\n  // Write your solution\n}\n`,
-  );
+  const [language, setLanguage] = useState("javascript");
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [code, setCode] = useState(DEFAULT_CODE["javascript"]);
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
   const feedbackRef = useRef<HTMLDivElement>(null);
+
+  // Track current state in a ref for Monaco paste handler closure
+  const currentStateForPaste = useRef(currentState);
+  const editorRef = useRef<any>(null);
+  const problemHeaderLines = useRef(0); // number of read-only problem comment lines
+  const problemInjected = useRef(false); // prevent double injection
+
+  // Code execution state
+  const [isRunning, setIsRunning] = useState(false);
+  const [execResult, setExecResult] = useState<ExecResult | null>(null);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
+
+  // Keep paste-handler ref in sync with currentState
+  useEffect(() => {
+    currentStateForPaste.current = currentState;
+  }, [currentState]);
 
   // Auto-scroll feedback to top (newest first)
   useEffect(() => {
@@ -154,290 +132,304 @@ export default function SessionView() {
     }
   }, [feedback]);
 
-  const stateColor = STATE_COLORS[currentState] || "bg-gray-800 text-gray-400";
-  const stateIcon = STATE_ICONS[currentState] || <CircleDot size={12} />;
-  const transitions = MANUAL_TRANSITIONS[currentState] || [];
+  const {
+    stateColor,
+    stateIcon,
+    transitions,
+    currentLang,
+    lineCount,
+    charCount,
+  } = useMemo(
+    () => ({
+      stateColor: STATE_COLORS[currentState] || "bg-gray-800 text-gray-400",
+      stateIcon: STATE_ICONS[currentState] || STATE_ICONS.IDLE,
+      transitions: MANUAL_TRANSITIONS[currentState] || [],
+      currentLang: LANGUAGES.find((l) => l.id === language) || LANGUAGES[0],
+      lineCount: code.split("\n").length,
+      charCount: code.length,
+    }),
+    [currentState, language, code],
+  );
+
+  // Language switching handler
+  const switchLanguage = useCallback(
+    (langId: string) => {
+      setLanguage(langId);
+      // Re-generate code with problem header if question was already injected
+      if (problemInjected.current && questionData) {
+        const header = generateProblemComments(questionData, langId);
+        const defaultBody = DEFAULT_CODE[langId] || "";
+        setCode(header + "\n" + defaultBody);
+        problemHeaderLines.current = header.split("\n").length;
+      } else {
+        setCode(DEFAULT_CODE[langId] || "");
+      }
+      setShowLangMenu(false);
+    },
+    [questionData],
+  );
+
+  // ---------- Backend test-case execution ----------
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const runCode = useCallback(async () => {
+    setIsRunning(true);
+    setShowTerminal(true);
+    setRunResult(null);
+    setExecResult(null);
+    const t0 = Date.now();
+
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${sessionId}/run-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, language }),
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data: RunResult = await res.json();
+      data.execTime = Date.now() - t0;
+      setRunResult(data);
+
+      // Feed results to SYNTH
+      if (isConnected) {
+        const summary = data.error
+          ? `Candidate ran code — error: ${data.error.slice(0, 200)}`
+          : `Candidate ran tests: ${data.passed}/${data.total} passed.${
+              data.results.some((r) => !r.passed)
+                ? " Failing: " +
+                  data.results
+                    .filter((r) => !r.passed)
+                    .map(
+                      (r) =>
+                        `${r.label} (got ${r.actual}, expected ${r.expected})`,
+                    )
+                    .slice(0, 2)
+                    .join("; ")
+                : " All tests passed!"
+            }`;
+        sendEvent("candidate_signal", { signal: summary });
+      }
+    } catch (err) {
+      setExecResult({
+        stdout: "",
+        stderr: err instanceof Error ? err.message : "Unknown execution error",
+        exitCode: -1,
+        execTime: Date.now() - t0,
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  }, [code, language, sessionId, isConnected, sendEvent, API_BASE]);
+
+  // Inject problem into editor when PROBLEM_DELIVERY state is reached
+  useEffect(() => {
+    if (
+      currentState !== "PROBLEM_DELIVERY" ||
+      !questionData ||
+      problemInjected.current
+    )
+      return;
+    problemInjected.current = true;
+
+    const header = generateProblemComments(questionData, language);
+    const existingCode = DEFAULT_CODE[language] || "";
+    const fullCode = header + existingCode;
+    setCode(fullCode);
+    problemHeaderLines.current = header.split("\n").length;
+
+    // Apply read-only constraint after Monaco updates
+    setTimeout(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+
+      const editableStartLine = problemHeaderLines.current + 1;
+      // Position cursor at the start of editable area
+      editor.setPosition({ lineNumber: editableStartLine, column: 1 });
+      editor.revealLineInCenter(editableStartLine);
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentState, questionData, language]);
+
+  // Monaco custom theme + editor setup
+  const handleEditorMount: OnMount = useCallback(
+    (editor, monaco) => {
+      editorRef.current = editor;
+
+      // Custom dark theme
+      monaco.editor.defineTheme("synth-dark", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [
+          { token: "comment", foreground: "4a5568", fontStyle: "italic" },
+          { token: "keyword", foreground: "c084fc" },
+          { token: "string", foreground: "86efac" },
+          { token: "number", foreground: "fbbf24" },
+          { token: "type", foreground: "67e8f9" },
+          { token: "function", foreground: "93c5fd" },
+          { token: "variable", foreground: "e2e8f0" },
+        ],
+        colors: {
+          "editor.background": "#09090b",
+          "editor.foreground": "#e2e8f0",
+          "editor.lineHighlightBackground": "#ffffff08",
+          "editor.selectionBackground": "#6366f140",
+          "editor.inactiveSelectionBackground": "#6366f120",
+          "editorCursor.foreground": "#a78bfa",
+          "editorLineNumber.foreground": "#334155",
+          "editorLineNumber.activeForeground": "#94a3b8",
+          "editorIndentGuide.background": "#1e293b40",
+          "editorIndentGuide.activeBackground": "#334155",
+          "editorWidget.background": "#0f172a",
+          "editorWidget.border": "#1e293b",
+          "editorSuggestWidget.background": "#0f172a",
+          "editorSuggestWidget.border": "#1e293b",
+          "editorSuggestWidget.selectedBackground": "#1e293b",
+        },
+      });
+      monaco.editor.setTheme("synth-dark");
+
+      // Track cursor position
+      editor.onDidChangeCursorPosition((e: any) => {
+        setCursorPosition({
+          line: e.position.lineNumber,
+          col: e.position.column,
+        });
+      });
+
+      // Track copy events to prevent false paste-cheating alerts
+      editor.onDidPaste((e: any) => {
+        if (currentStateForPaste.current !== "CODING") return;
+        const pastedText = editor.getModel()?.getValueInRange(e.range) ?? "";
+        if (pastedText.length > 50) {
+          const lastCopied = getLastCopied();
+          if (lastCopied && pastedText === lastCopied) return;
+          sendEvent("large_paste", { length: pastedText.length });
+        }
+      });
+
+      // Track copy actions
+      editor.addAction({
+        id: "track-copy",
+        label: "Track Copy",
+        keybindings: [],
+        contextMenuGroupId: "9_cutcopypaste",
+        run: (ed: any) => {
+          const selection = ed.getSelection();
+          if (selection) {
+            const selectedText =
+              ed.getModel()?.getValueInRange(selection) ?? "";
+            if (selectedText) setLastCopied(selectedText);
+          }
+        },
+      });
+
+      const editorDom = editor.getDomNode();
+      if (editorDom) {
+        editorDom.addEventListener("copy", () => {
+          const selection = editor.getSelection();
+          if (selection) {
+            const text = editor.getModel()?.getValueInRange(selection) ?? "";
+            if (text) setLastCopied(text);
+          }
+        });
+        editorDom.addEventListener("cut", () => {
+          const selection = editor.getSelection();
+          if (selection) {
+            const text = editor.getModel()?.getValueInRange(selection) ?? "";
+            if (text) setLastCopied(text);
+          }
+        });
+      }
+    },
+    [sendEvent, getLastCopied, setLastCopied],
+  );
 
   return (
-    <div className="flex h-screen bg-[#0d0d0d] text-white overflow-hidden font-mono">
-      {/* ── Left Sidebar ─────────────────────────────────────────── */}
-      <div className="w-14 flex flex-col items-center py-5 border-r border-white/5 gap-6 bg-[#080808]">
-        <div className="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-xs rounded-sm cursor-pointer select-none">
-          S
-        </div>
+    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-mono">
+      <Overlays
+        currentState={currentState}
+        isConnected={isConnected}
+        greetingDone={greetingDone}
+        acquireAndStartMedia={acquireAndStartMedia}
+        isTerminated={isTerminated}
+        visionViolation={visionViolation}
+        sessionBlocked={sessionBlocked}
+      />
 
-        <div className="flex flex-col gap-5 mt-2">
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            title={isMuted ? "Unmute" : "Mute"}
-            className={`p-2 rounded-md transition-colors ${
-              isMuted
-                ? "bg-red-900/60 text-red-300"
-                : "text-gray-500 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
-          </button>
+      <Sidebar
+        isMuted={isMuted}
+        toggleMute={toggleMute}
+        screenLost={screenLost}
+        isConnected={isConnected}
+        reshareScreen={reshareScreen}
+        stopScreenShare={stopScreenShare}
+      />
 
-          <button
-            title="Screen Share Active"
-            className={`p-2 rounded-md transition-colors ${
-              isConnected ? "text-green-400" : "text-gray-600"
-            }`}
-          >
-            <Monitor size={18} />
-          </button>
-        </div>
-
-        <div className="mt-auto mb-2">
-          <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-white/10">
-            <User size={16} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main Content ─────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <header className="h-12 border-b border-white/5 flex items-center justify-between px-5 bg-[#0a0a0a] shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold tracking-widest text-gray-400 uppercase">
-              SynthInterview
-            </span>
-            <div className="h-3 w-px bg-white/10 mx-1" />
-            {/* Current State Badge */}
-            <span
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${stateColor}`}
-            >
-              {stateIcon}
-              {currentState.replace(/_/g, " ")}
-            </span>
-          </div>
+        <Header
+          currentState={currentState}
+          stateIcon={stateIcon}
+          stateColor={stateColor}
+          isSpeaking={isSpeaking}
+          isUserSpeaking={isUserSpeaking}
+          isConnected={isConnected}
+          connect={connect}
+          disconnect={disconnect}
+        />
 
-          <div className="flex items-center gap-3">
-            {/* Connection indicator */}
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-              />
-              <span
-                className={`text-[10px] font-bold tracking-widest uppercase ${isConnected ? "text-green-400" : "text-red-400"}`}
-              >
-                {isConnected ? "AI Online" : "AI Offline"}
-              </span>
-            </div>
+        <Banners
+          isSpeaking={isSpeaking}
+          isUserSpeaking={isUserSpeaking}
+          screenLost={screenLost}
+          tabSwitchWarning={tabSwitchWarning}
+          currentState={currentState}
+          violationReason={violationReason}
+          reshareScreen={reshareScreen}
+          sendEvent={sendEvent}
+        />
 
-            {!isConnected ? (
-              <button
-                id="start-interview-btn"
-                onClick={connect}
-                className="flex items-center gap-2 bg-white text-black px-3 py-1 rounded text-xs font-bold hover:bg-gray-200 transition-colors"
-              >
-                <CircleDot size={12} className="animate-pulse text-red-500" />
-                Start Interview
-              </button>
-            ) : (
-              <button
-                id="end-interview-btn"
-                onClick={disconnect}
-                className="flex items-center gap-2 bg-red-950/60 border border-red-800/50 text-red-400 px-3 py-1 rounded text-xs font-bold hover:bg-red-900/40 transition-colors"
-              >
-                <XCircle size={12} />
-                End
-              </button>
-            )}
-          </div>
-        </header>
+        <div className="flex-1 flex min-h-0 relative">
+          <EditorPanel
+            language={language}
+            code={code}
+            setCode={setCode}
+            sendCode={sendCode}
+            handleEditorMount={handleEditorMount}
+            currentLang={currentLang}
+            lineCount={lineCount}
+            charCount={charCount}
+            cursorPosition={cursorPosition}
+            isConnected={isConnected}
+            currentState={currentState}
+            isRunning={isRunning}
+            runCode={runCode}
+            showTerminal={showTerminal}
+            setShowTerminal={setShowTerminal}
+            runResult={runResult}
+            setRunResult={setRunResult}
+            execResult={execResult}
+            setExecResult={setExecResult}
+            showLangMenu={showLangMenu}
+            setShowLangMenu={setShowLangMenu}
+            switchLanguage={switchLanguage}
+          />
 
-        {/* Editor + AI Panel */}
-        <div className="flex-1 flex min-h-0">
-          {/* Monaco Editor */}
-          <div className="flex-[3] min-w-0 border-r border-white/5">
-            <Editor
-              height="100%"
-              defaultLanguage="javascript"
-              value={code}
-              theme="vs-dark"
-              onChange={(val) => setCode(val || "")}
-              options={{
-                fontSize: 13,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                padding: { top: 16 },
-                fontFamily: "JetBrains Mono, Menlo, Monaco, monospace",
-                lineNumbers: "on",
-                renderLineHighlight: "line",
-                cursorBlinking: "smooth",
-              }}
-            />
-          </div>
-
-          {/* Right Panel */}
-          <div className="w-[320px] flex flex-col bg-[#080808] shrink-0">
-            {/* Tab Bar */}
-            <div className="flex border-b border-white/5 shrink-0">
-              <button
-                onClick={() => setActiveTab("feedback")}
-                className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${
-                  activeTab === "feedback"
-                    ? "text-white border-b border-white"
-                    : "text-gray-600 hover:text-gray-400"
-                }`}
-              >
-                AI Feedback
-              </button>
-              <button
-                onClick={() => setActiveTab("scorecard")}
-                className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${
-                  activeTab === "scorecard"
-                    ? "text-white border-b border-white"
-                    : "text-gray-600 hover:text-gray-400"
-                }`}
-              >
-                Scorecard
-              </button>
-            </div>
-
-            {/* Manual Controls (when in states with available transitions) */}
-            {isConnected && transitions.length > 0 && (
-              <div className="px-4 py-3 border-b border-white/5 space-y-2 shrink-0">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600">
-                  Actions
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {transitions.map((t) => (
-                    <button
-                      key={t.event}
-                      id={`action-${t.event}`}
-                      onClick={() => sendEvent(t.event)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold text-gray-300 hover:text-white transition-colors"
-                    >
-                      {t.icon}
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Feedback / Scorecard Content */}
-            {activeTab === "feedback" ? (
-              <div
-                ref={feedbackRef}
-                className="flex-1 overflow-y-auto p-4 space-y-3"
-              >
-                {feedback.length === 0 ? (
-                  <div className="border border-dashed border-white/10 rounded p-4 mt-4">
-                    <p className="text-[10px] text-gray-600 text-center italic leading-relaxed">
-                      {isConnected
-                        ? "Synth is listening…"
-                        : "Start the interview to begin."}
-                    </p>
-                  </div>
-                ) : (
-                  [...feedback].reverse().map((msg, i) => (
-                    <div
-                      key={i}
-                      className="bg-white/[0.03] border border-white/5 rounded p-3 space-y-1"
-                    >
-                      <p className="text-[11px] leading-relaxed text-gray-300">
-                        {msg}
-                      </p>
-                      <span className="text-[9px] text-gray-600 uppercase tracking-widest">
-                        {i === 0 ? "just now" : `${i * 15}s ago`} · SYNTH
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                {[
-                  { label: "Problem Understanding", key: "problem" },
-                  { label: "Approach Quality", key: "approach" },
-                  { label: "Code Quality", key: "code" },
-                  { label: "Communication", key: "communication" },
-                  { label: "Test Performance", key: "tests" },
-                  { label: "Optimization", key: "optimization" },
-                ].map(({ label }) => (
-                  <div key={label} className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-medium">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="text-gray-700">
-                        {currentState === "COMPLETED" ? "—/5" : "..."}
-                      </span>
-                    </div>
-                    <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-white/40 transition-all duration-1000 ${
-                          currentState === "COMPLETED" ? "w-1/2" : "w-0"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                <div className="border border-dashed border-white/10 rounded p-3 mt-4">
-                  <p className="text-[10px] text-gray-600 text-center leading-relaxed">
-                    {currentState === "COMPLETED"
-                      ? "Scorecard generated — check recruiter dashboard."
-                      : "Full scorecard generated after interview ends."}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* State Progress Footer */}
-            <div className="p-3 border-t border-white/5 shrink-0">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-600">
-                  Interview Progress
-                </span>
-                <ChevronRight size={10} className="text-gray-700" />
-              </div>
-              <div className="flex gap-0.5">
-                {[
-                  "GREETING",
-                  "ENV_CHECK",
-                  "PROBLEM_DELIVERY",
-                  "CODING",
-                  "TESTING",
-                  "COMPLETED",
-                ].map((s) => {
-                  const states = [
-                    "GREETING",
-                    "ENV_CHECK",
-                    "PROBLEM_DELIVERY",
-                    "THINK_TIME",
-                    "APPROACH_LISTEN",
-                    "CODING",
-                    "HINT_DELIVERY",
-                    "TESTING",
-                    "OPTIMIZATION",
-                    "COMPLETED",
-                    "FLAGGED",
-                  ];
-                  const currentIdx = states.indexOf(currentState);
-                  const thisIdx = states.indexOf(s);
-                  const done = currentIdx > thisIdx;
-                  const active = s === currentState;
-                  return (
-                    <div
-                      key={s}
-                      title={s}
-                      className={`flex-1 h-0.5 rounded-full transition-all duration-500 ${
-                        done
-                          ? "bg-white"
-                          : active
-                            ? "bg-white/60 animate-pulse"
-                            : "bg-white/10"
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <RightPanel
+            isSpeaking={isSpeaking}
+            isUserSpeaking={isUserSpeaking}
+            isConnected={isConnected}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            transitions={transitions}
+            acquireAndStartMedia={acquireAndStartMedia}
+            sendEvent={sendEvent}
+            feedback={feedback}
+            feedbackRef={feedbackRef}
+            scorecard={scorecard}
+            currentState={currentState}
+          />
         </div>
       </div>
     </div>

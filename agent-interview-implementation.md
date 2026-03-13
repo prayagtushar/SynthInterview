@@ -1,151 +1,166 @@
-# AI Coding Interview Agent
+### 6.1 Sprint Structure (14 Days)
 
-## Gemini Live Agent Challenge — Live Agents Category
+#### TASK 1 — Project Setup & Boilerplate (Day 1)
 
-**Deadline:** March 16, 2026
+```
+Checkpoint: Monorepo initialized, GCP project created, CI/CD pipeline running, skeleton
+apps deploy to Cloud Run.
+```
 
----
+- Initialize monorepo with pnpm workspaces: /apps/frontend, /apps/backend,
+  /packages/shared
+- Setup GCP project: enable Cloud Run, Firestore, Cloud Storage, Secret Manager,
+  Firebase Auth APIs
+- Create Dockerfile for FastAPI backend; push to Artifact Registry
+- Deploy skeleton "hello world" FastAPI app to Cloud Run — get public URL for proof of
+  deployment
+- Setup Cloud Build trigger: git push to main → build → deploy
+- Initialize React + Vite frontend with TypeScript and TailwindCSS
+- Add Firebase Auth to frontend (email/password for recruiter, magic link for candidate)
 
-# 1. Executive Summary
+#### TASK 2 — Gemini Live API Integration (Day 2-3)
 
-**InterviewAI** is a real-time AI coding interviewer powered by the **Gemini Live API**.
+```
+Checkpoint: Can stream audio + image frames to Gemini Live API and receive real-time text
+responses. Tested in isolation via CLI script.
+```
 
-The agent conducts full technical coding interviews via **voice and screen share**, watching the candidate’s editor in real time, asking adaptive follow-up questions, detecting off-screen activity, providing contextual hints, and generating a recruiter scorecard after the interview.
+- Install google-genai SDK; configure API key in Secret Manager
+- Build GeminiLiveClient class: manages WebSocket connection to Gemini, handles
+  stream lifecycle
+- Implement audio chunk forwarding: PCM16 audio from WebSocket → Gemini audio
+  input
+- Implement image frame forwarding: JPEG frames (5 fps) → Gemini image input
+- Parse Gemini streaming output: extract text tokens, tool calls, function responses
+- Write unit test: mock a 30-second audio stream + 10 frames → validate coherent
+  response received
+- Handle interruptions: if candidate speaks mid-agent-response, Gemini stream is reset
+  and restarted
 
-> 🎯 **Core Value Proposition**  
-> The only AI interviewer that can simultaneously **HEAR the candidate, SEE their screen, and THINK about their code — all in real time.**
+#### TASK 3 — WebRTC Screen Capture Pipeline (Day 3-4)
 
-### Hackathon Details
+```
+Checkpoint: Browser captures screen, streams 5fps JPEG frames + audio over WebSocket
+to backend successfully. Latency < 300ms.
+```
 
-| Category             | Live Agents                                  |
-| -------------------- | -------------------------------------------- |
-| Primary Tech         | Gemini Live API + Google ADK                 |
-| Cloud Hosting        | Google Cloud Run + Firestore                 |
-| Voice Layer          | ElevenLabs Persona Voice + Gemini Native TTS |
-| Target Users         | Recruiters, Bootcamps, Hiring Platforms      |
-| Estimated Build Time | 14 Days                                      |
+- Frontend: implement getDisplayMedia() for full screen capture with audio
+- Frontend: implement getUserMedia() for microphone capture
+- Build canvas-based frame extractor: draw video frame to canvas every 200ms →
+  toBlob(JPEG, 0.7)
+- Backend: FastAPI WebSocket endpoint /ws/interview/{sessionId}
+- Backend: accept binary frame chunks + audio chunks; route to GeminiLiveClient
+- Test end-to-end: open VSCode, capture, send to Gemini, ask "what editor is open?" —
+  verify correct answer
 
----
+#### TASK 4 — ADK Agent & State Machine (Day 4-6)
 
-# 2. System Architecture
+```
+Checkpoint: Full interview flow runs end-to-end in terminal (no UI). All 7 phases execute with
+correct transitions. Agent asks appropriate questions at each phase.
+```
 
-## 2.1 High-Level Architecture
+- Define ADK Agent with tools: verify_environment, deliver_problem, log_approach,
+  provide_hint, run_test_case, generate_report, flag_violation
+- Implement InterviewStateMachine class with all 12 states and transition rules
+- Build system prompt for Gemini: interviewer persona, rules (never give solution), hint
+  policy, tone guidelines
+- Implement Phase 1: env verification loop (check screen, prompt correction, confirm
+  clean workspace)
+- Implement Phase 2: problem delivery with repeat/simplify intents
+- Implement Phase 3: think timer (asyncio timer), approach listening, probing Q bank
+- Implement Phase 4: coding watch mode, idle detection (no keystrokes > 3 min), hint
+  gating
+- Implement Phase 5: test case delivery and terminal output reading
+- Implement Phase 6: optimization check and complexity verification
+- Implement Phase 7: wrap-up and async report trigger
+- Write integration test: run full simulated interview with mock candidate responses
 
-The system consists of four primary layers:
+#### TASK 5 — Cheat Detection System (Day 6-7)
 
-1. Candidate Frontend
-2. Backend Orchestration
-3. AI Intelligence Layer
-4. Cloud Infrastructure
+```
+Checkpoint: Agent correctly detects browser open, tab switch, and phone/second screen in
+3 test scenarios. Warnings are issued within 5 seconds.
+```
 
-| Layer    | Component           | Technology      | Responsibility                                   |
-| -------- | ------------------- | --------------- | ------------------------------------------------ |
-| Frontend | Candidate App       | React + WebRTC  | Screen share capture, audio stream, interview UI |
-| Frontend | Recruiter Dashboard | React           | View reports, configure sessions                 |
-| Backend  | API Server          | FastAPI         | Session management, REST API                     |
-| Backend  | Agent Core          | Google ADK      | Conversation flow, state machine                 |
-| AI       | Vision + Voice      | Gemini Live API | Speech recognition, screen analysis              |
-| AI       | Voice Persona       | ElevenLabs      | Human-like interviewer voice                     |
-| Cloud    | Hosting             | Cloud Run       | Containerized backend                            |
-| Cloud    | Database            | Firestore       | Session data, transcripts                        |
-| Cloud    | Storage             | Cloud Storage   | Snapshots, audio, reports                        |
-| Cloud    | Authentication      | Firebase Auth   | Candidate & recruiter authentication             |
+- Build CheatDetector class powered by Gemini vision analysis on each screen frame
+- Define detection rules: (a) non-editor app in foreground, (b) browser with search/AI sites
+  visible, (c) multiple windows/splits showing non-code content
+- Implement threshold logic: 2 consecutive flagged frames = soft warning; 5 = hard
+  warning + log
+- Add violation_log array to Firestore session document: { timestamp, type, screenshotRef
+  }
+- Capture and store screenshot at time of violation to Cloud Storage
+- Integrate verbal warning into ADK agent tools: call warn_candidate(reason) tool
 
----
+- Surface violations in recruiter dashboard report with timestamps
 
-## 2.2 Data Flow
+#### TASK 6 — ElevenLabs Voice Persona (Day 7-8)
 
-1. Candidate opens interview URL and authenticates via Firebase Auth.
-2. Browser requests screen sharing via WebRTC `getDisplayMedia`.
-3. Screen frames (5 fps) and microphone audio stream to backend via WebSocket.
-4. Backend forwards audio + frames to Gemini Live API.
-5. Gemini processes multimodal input.
-6. ADK agent interprets output and decides next action.
-7. Response text sent to ElevenLabs TTS.
-8. Audio response streamed back to candidate.
-9. All events logged to Firestore.
-10. Post-session evaluation report generated.
+```
+Checkpoint: Agent speaks with a consistent named persona voice. Latency from text to first
+audio byte < 600ms. Handles interruptions gracefully.
+```
 
----
+- Create ElevenLabs voice: clone or select a professional neutral voice; name the persona
+  (e.g., "Alex")
+- Build ElevenLabsTTSClient: async text → streaming audio via ElevenLabs websocket
+  TTS API
+- Implement audio queue: ADK agent outputs text chunks → queue → TTS → audio
+  stream to candidate
+- Implement interruption handling: candidate speech detected → drain audio queue →
+  reset TTS stream
+- Fallback: if ElevenLabs latency > 1s, switch to Gemini native TTS (lower latency, less
+  natural)
+- Add voice settings: speaking rate, stability, clarity tuned for interview context (clear,
+  measured pace)
 
-# 3. Detailed Tech Stack
+#### TASK 7 — Frontend Interview UI (Day 8-10)
 
-## 3.1 Frontend
+```
+Checkpoint: Candidate can join interview, share screen, hear agent voice, see question
+overlay, and view timer — all in one clean interface.
+```
 
-| Tool          | Version    | Purpose                  |
-| ------------- | ---------- | ------------------------ |
-| React         | 18.x       | UI framework             |
-| Vite          | 5.x        | Build tool               |
-| TypeScript    | 5.x        | Type safety              |
-| TailwindCSS   | 3.x        | Styling                  |
-| shadcn/ui     | Latest     | UI components            |
-| WebRTC        | Native API | Screen + audio streaming |
-| Socket.io     | 4.x        | WebSocket communication  |
-| Monaco Editor | Latest     | Code preview             |
-| React Query   | 5.x        | Server state management  |
-| Zustand       | 4.x        | Client state             |
-| Framer Motion | 11.x       | Animations               |
-| Recharts      | 2.x        | Dashboard charts         |
+- Build /interview/[sessionId] page with: (a) screen share preview thumbnail, (b) agent
+  avatar with speaking animation, (c) question overlay panel, (d) interview phase progress
+  bar, (e) countdown timer
+- Build audio visualizer: show waveform when agent is speaking vs. when candidate is
+  speaking
+- Implement mute/unmute control and screen share toggle with visual indicators
+- Add hint request button (keyboard shortcut: H) that triggers verbal hint request
+- Build "I'm Done" button for each phase transition that sends verbal + programmatic
+  signal
+- Implement connection status indicator: WebSocket health, Gemini stream health
+- Add /waiting room page for before session start
+- Mobile-responsive layout (tablet fallback)
 
----
+#### TASK 8 — Recruiter Dashboard (Day 10-11)
 
-## 3.2 Backend
+```
+Checkpoint: Recruiter can create sessions, view live active interviews, and access past
+interview reports with scorecard and violation log.
+```
 
-| Tool                 | Version | Purpose                 |
-| -------------------- | ------- | ----------------------- |
-| Python               | 3.12    | Runtime                 |
-| FastAPI              | 0.111   | REST API + WebSockets   |
-| Google ADK           | Latest  | Agent orchestration     |
-| google-genai SDK     | Latest  | Gemini Live integration |
-| firebase-admin       | 6.x     | Firestore + Auth        |
-| google-cloud-storage | 2.x     | File storage            |
-| Pillow               | 10.x    | Image processing        |
-| ElevenLabs SDK       | Latest  | Voice synthesis         |
-| Pydantic             | 2.x     | Validation              |
-| Uvicorn              | 0.29    | ASGI server             |
-| Redis                | 7.x     | Session state           |
-| WeasyPrint           | Latest  | PDF generation          |
+- Build /dashboard page: list of past and active sessions
+- Session creation wizard: select topic, difficulty, candidate email, send invite
+- Live monitor view: see active session phase, time elapsed, violation count in real time
+  via Firestore listeners
+- Report view: expandable scorecard with all dimensions, code snapshots, violation
+  timeline
+- PDF download button: fetches report from Cloud Storage
+- Bulk invite: CSV upload for multiple candidates
 
----
+#### TASK 9 — Post-Interview Report Generation (Day 11-12)
 
-## 3.3 Google Cloud Services
+```
+Checkpoint: Within 2 minutes of session end, a structured PDF report is available in recruiter
+dashboard with all evaluation dimensions filled.
+```
 
-| Service           | Usage                        |
-| ----------------- | ---------------------------- |
-| Cloud Run         | Host backend                 |
-| Firestore         | Store sessions & transcripts |
-| Cloud Storage     | Store snapshots & reports    |
-| Firebase Auth     | Authentication               |
-| Cloud Memorystore | Redis session state          |
-| Artifact Registry | Docker images                |
-| Cloud Build       | CI/CD pipeline               |
-| Vertex AI         | Gemini API access            |
-| Cloud Logging     | Monitoring                   |
-| Secret Manager    | API key storage              |
-
----
-
-# 5. Agent State Machine
-
-| State            | Entry              | Exit                |
-| ---------------- | ------------------ | ------------------- |
-| IDLE             | Session created    | Candidate joins     |
-| GREETING         | Candidate connects | Screen share active |
-| ENV_CHECK        | Screen detected    | Clean workspace     |
-| PROBLEM_DELIVERY | Env verified       | Candidate confirms  |
-| THINK_TIME       | Problem understood | Timer expires       |
-| APPROACH_LISTEN  | Thinking done      | Questions complete  |
-| CODING           | Approach accepted  | Candidate finished  |
-| HINT_DELIVERY    | Hint requested     | Hint delivered      |
-| TESTING          | Coding finished    | Tests complete      |
-| OPTIMIZATION     | Tests passed       | Optimization done   |
-| COMPLETED        | Interview finished | Session closed      |
-| FLAGGED          | Cheat detected     | Warning issued      |
-
----
-
-#
-
+- Build Firestore listener: trigger report generation on session status = COMPLETED
+- Assemble session context: full transcript, approach notes, test results, optimization
+  outcome, violation log
 - Send structured prompt to Gemini (non-live, standard API): generate JSON scorecard
   with dimensions
 - Scorecard dimensions: Problem Understanding (1- 5 ), Approach Quality (1-5), Code
@@ -155,93 +170,3 @@ The system consists of four primary layers:
   branding slots
 - Upload PDF to Cloud Storage; store signed URL in Firestore session document
 - Send email notification to recruiter with PDF link via Firebase Extension (email trigger)
-
-#### TASK 10 — Question Bank (Day 12)
-
-```
-Checkpoint: 20+ questions seeded across 3 difficulties and 5 topic categories. Agent can
-retrieve appropriate question based on session config.
-```
-
-- Design Firestore schema: questions/{id} → { title, description, difficulty, topics[], hints[],
-  testCases[], solutions[], timeComplexity, spaceComplexity }
-- Seed 20 questions: 6 Easy (Arrays, Strings), 8 Medium (Hashmaps, Binary Search,
-  Sliding Window), 6 Hard (DP, Graphs, Trees)
-- Build question selector: filter by session config, avoid repeats (check candidate history in
-  Firestore)
-- Add hint chain: each question has 3 progressive hints (directional only, never full
-  solution)
-
-#### TASK 11 — Polish, Testing & Demo Prep (Day 13-14)
-
-Checkpoint: Full end-to-end demo recorded. Architecture diagram finalized. Cloud
-deployment proven. GitHub README complete with spin-up instructions.
-
-- End-to-end test: run 2 full mock interviews (Easy + Medium difficulty)
-- Load test: simulate 3 concurrent sessions on Cloud Run — verify auto-scaling works
-- Error handling audit: WebSocket disconnection recovery, Gemini API timeout fallback,
-  TTS failure graceful degradation
-- Record 4-minute demo video: open with cheat detection scene (high wow factor), show
-  full flow, end with recruiter PDF report
-- Create architecture diagram (Lucidchart or Excalidraw) showing all components and
-  data flows
-- Record GCP console screen showing Cloud Run deployment (proof of hosting)
-- Write GitHub README: setup instructions, environment variables, local run guide,
-  deploy guide
-- Write Devpost submission: problem statement, solution description, tech used, learnings
-- Optional: Publish Medium blog post with #GeminiLiveAgentChallenge for bonus points
-
-# 7. Environment Variables
-
-| Variable            | Description               |
-| ------------------- | ------------------------- |
-| GEMINI_API_KEY      | Gemini API key            |
-| ELEVENLABS_API_KEY  | ElevenLabs key            |
-| ELEVENLABS_VOICE_ID | Voice ID                  |
-| FIREBASE_PROJECT_ID | Firebase project          |
-| GCS_BUCKET_NAME     | Storage bucket            |
-| REDIS_URL           | Redis instance            |
-| GEMINI_MODEL        | gemini-2.0-flash-live-001 |
-
----
-
-# 8. Hackathon Bonus Strategy
-
-## Bonus 1 — Publish Content
-
-Medium article:
-
-**"How I Built a Real-Time AI Coding Interviewer with Gemini Live API"**
-
-Use hashtag:
-
-```
-#GeminiLiveAgentChallenge
-```
-
----
-
-## Bonus 2 — Automated Cloud Deployment
-
-Include:
-
-- `cloudbuild.yaml`
-- Terraform scripts
-- Infrastructure configs
-
----
-
-## Bonus 3 — Join Google Developer Group
-
-Register and add GDG profile to submission.
-
----
-
-# Final Outcome
-
-A fully automated **AI coding interviewer** capable of conducting technical interviews with:
-
-- Real-time voice interaction
-- Screen monitoring
-- Adaptive questioning
-- Automated evaluation reports
