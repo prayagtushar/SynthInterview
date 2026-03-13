@@ -1,10 +1,7 @@
-"""
-Question bank for the AI coding interview platform.
-Covers 3 difficulties and 5 topic categories.
-
-structured_tests: machine-runnable test cases where args maps to solve(*args).
-sort_compare: True if the output order doesn't matter (e.g. group anagrams).
-"""
+# Question bank for SynthInterview.
+# 3 difficulties, 5 topic categories.
+# structured_tests: machine-runnable test cases.
+# sort_compare: True if output order doesn't matter.
 
 QUESTIONS = {
     "two-sum": {
@@ -430,11 +427,11 @@ Explanation: There are three ways: 1+1+1, 1+2, 2+1.""",
 }
 
 def get_question(question_id: str) -> dict:
-    """Returns question data by ID, defaults to two-sum."""
+    """Returns question by ID."""
     return QUESTIONS.get(question_id, QUESTIONS["two-sum"])
 
 def select_question_for_session(difficulty: str, topics: list) -> dict:
-    """Selects an appropriate question based on difficulty and topics."""
+    """Selects question based on difficulty and topics."""
     candidates = [q for q in QUESTIONS.values() if q["difficulty"] == difficulty]
     if topics and candidates:
         topic_matches = [q for q in candidates if any(t in q["topics"] for t in topics)]

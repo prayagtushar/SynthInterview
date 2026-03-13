@@ -1,8 +1,4 @@
-"""
-Email service for SynthInterview.
-Sends interview invite links and post-interview scorecards via SMTP.
-Configure via env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM, APP_URL.
-"""
+# Email service for SynthInterview (SMTP).
 
 import os
 import logging
@@ -26,7 +22,7 @@ async def send_invite_email(
     difficulty: str,
     topics: list,
 ) -> bool:
-    """Send interview invitation email with unique session link."""
+    """Sends interview invitation email."""
     if not _smtp_configured():
         logger.warning("SMTP not configured — skipping invite email to %s", to_email)
         return False
@@ -141,7 +137,7 @@ async def send_scorecard_email(
     final_code: str,
     language: str = "python",
 ) -> bool:
-    """Send post-interview scorecard email with full analysis."""
+    """Sends post-interview scorecard email."""
     if not _smtp_configured():
         logger.warning("SMTP not configured — skipping scorecard email to %s", to_email)
         return False
@@ -152,7 +148,7 @@ async def send_scorecard_email(
     feedback = scorecard.get("feedback", "")
     dimension_feedback = scorecard.get("dimension_feedback", {})
 
-    # Rating color
+    # Rating style
     rating_color = {
         "Excellent": "#22c55e",
         "Good": "#3b82f6",
@@ -192,7 +188,7 @@ async def send_scorecard_email(
           </td>
         </tr>"""
 
-    # Code snippet (truncated)
+    # Truncate content
     code_snippet = final_code[-1500:] if len(final_code) > 1500 else final_code
     code_escaped = code_snippet.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -280,7 +276,7 @@ async def send_scorecard_email(
 
 
 async def _send(to_email: str, subject: str, html: str) -> bool:
-    """Low-level async SMTP send using aiosmtplib."""
+    """SMTP send via aiosmtplib."""
     try:
         import aiosmtplib
 

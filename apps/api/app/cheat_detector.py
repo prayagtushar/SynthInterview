@@ -15,13 +15,13 @@ class CheatDetector:
         self.model_id = model_id
         self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         self.consecutive_flags = 0
-        self.total_strikes = 0  # Total persistent violations
+        self.total_strikes = 0
         self.last_analysis_time = 0
-        self.analysis_interval = 4  # Aggressive analysis for live proctoring
+        self.analysis_interval = 4  # Analysis frequency (seconds)
         self.violation_log: List[Dict] = []
         
     async def process_frame(self, frame_b64: str) -> Optional[Dict]:
-        """Analyzes a frame and returns violation info if threshold met."""
+        """Analyzes a frame for violations."""
         now = time.time()
         if now - self.last_analysis_time < self.analysis_interval:
             return None
@@ -49,12 +49,12 @@ class CheatDetector:
         """Uses Gemini Vision to detect violations."""
         prompt = """
         Analyze this screen frame from a technical coding interview.
-        YOUR GOAL: Detect ACTIVE cheating (split screens, external AI tools, or other IDEs).
+        GOAL: Detect ACTIVE cheating (split screens, AI tools, other IDEs).
         
-        STRICT VIOLATIONS include:
-        1. Any split-screen or side-by-side windows. The screen must ONLY show the single interview browser window occupies most of the screen.
-        2. External IDEs/Terminals (VS Code, Cursor, Antigravity, local terminals).
-        3. Visible AI tools or search engines (ChatGPT, Claude, Grok, Google).
+        VIOLATIONS:
+        1. Split-screen/side-by-side windows. Screen must show ONLY the interview browser.
+        2. External IDEs/Terminals (VS Code, Cursor, etc.).
+        3. Visible AI tools or search engines.
         
         CRITICAL: If you see ANY window other than the SynthInterview web platform taking up visual space (split screen), it is a DEFINITE VIOLATION. Be extremely strict.
         
@@ -83,10 +83,7 @@ class CheatDetector:
             
             print(f"[Vision] Gemini raw response: {response.text}")
             
-            import json
-            import re
-            
-            # Clean up response text in case it has markdown blocks
+            # Clean up response (handle markdown)
             text = response.text.strip()
             if text.startswith("```json"):
                 text = re.sub(r"^```json\s*", "", text)
@@ -107,8 +104,7 @@ class CheatDetector:
 
     async def _handle_violation(self, violation: Dict, frame_b64: str) -> Dict:
         """Applies threshold logic and logs to Firestore/Storage."""
-        # Strike System:
-        # 3 total strikes OR 2 consecutive flags = TERMINATE
+        # 3 strikes OR 2 consecutive flags = TERMINATE
         if self.consecutive_flags >= 2 or self.total_strikes >= 3:
             violation_type = "TERMINATE"
         else:
@@ -120,25 +116,22 @@ class CheatDetector:
             timestamp = datetime.utcnow().isoformat()
             screenshot_ref = None
             
-            # For HARD/TERMINATE violations, store screenshot and log to Firestore
-            if violation_type in ["HARD", "TERMINATE"]:
-                screenshot_ref = await self._upload_screenshot(frame_b64, timestamp)
-                log_entry = {
-                    "timestamp": timestamp,
-                    "type": violation["type"],
-                    "reason": violation["reason"],
-                    "screenshotRef": screenshot_ref
-                }
-                self.violation_log.append(log_entry)
-                
-                # Update Firestore session document
-                try:
-                    self.db.collection("sessions").document(self.session_id).update({
-                        "violation_log": firestore.ArrayUnion([log_entry]),
-                        "status": "FLAGGED"
-                    })
-                except Exception as e:
-                    print(f"Firestore log error: {e}")
+            screenshot_ref = await self._upload_screenshot(frame_b64, timestamp)
+            log_entry = {
+                "timestamp": timestamp,
+                "type": violation["type"],
+                "reason": violation["reason"],
+                "screenshotRef": screenshot_ref
+            }
+            self.violation_log.append(log_entry)
+            
+            try:
+                self.db.collection("sessions").document(self.session_id).update({
+                    "violation_log": firestore.ArrayUnion([log_entry]),
+                    "status": "FLAGGED"
+                })
+            except Exception as e:
+                print(f"Firestore log error: {e}")
 
             return {
                 "severity": violation_type,
