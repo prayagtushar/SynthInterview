@@ -37,8 +37,7 @@ class InterviewAgent:
         self._problem_delivered_once: bool = False
 
     def hydrate_from_firestore(self) -> bool:
-        """Restores agent state from Firestore for reconnection support.
-        Returns True if state was successfully restored, False otherwise."""
+        """Restores state from Firestore for resumption."""
         if not self.db:
             return False
         try:
@@ -47,7 +46,6 @@ class InterviewAgent:
                 return False
             data = doc.to_dict()
             stored_status = data.get("status", "IDLE")
-            # Only hydrate if the session was in an active state
             if stored_status in ("IDLE", "COMPLETED"):
                 return False
             try:
@@ -85,8 +83,6 @@ class InterviewAgent:
             self.timer_task.cancel()
             self.timer_task = None
 
-        # Attach question data to metadata when entering PROBLEM_DELIVERY
-        # so the frontend can inject it into the code editor as comments
         if new_state == AgentState.PROBLEM_DELIVERY and self.question:
             self.metadata["question"] = {
                 "title": self.question.get("title", "Coding Problem"),
@@ -96,7 +92,6 @@ class InterviewAgent:
                 "optimalSpaceComplexity": self.question.get("optimalSpaceComplexity", ""),
             }
 
-        # Update Firestore session state (persist hint_index + previous_state for reconnection)
         if self.db:
             try:
                 persist_meta = {**self.metadata, "hint_index": self.hint_index}
@@ -116,7 +111,7 @@ class InterviewAgent:
         return await self.on_state_enter(new_state)
 
     async def on_state_enter(self, state: AgentState) -> Optional[str]:
-        """Performs actions and returns a scripted message when entering a new state."""
+        """State-specific logic and scripted messages."""
         q = self.question
 
         if state == AgentState.GREETING:
@@ -127,7 +122,7 @@ class InterviewAgent:
             )
 
         elif state == AgentState.ENV_CHECK:
-            return None  # UI overlay informs the candidate; agent stays silent unless a violation is detected
+            return None
 
         elif state == AgentState.PROBLEM_DELIVERY:
             if not self._problem_delivered_once:
@@ -193,8 +188,7 @@ class InterviewAgent:
         return None
 
     async def _start_think_nudge(self, seconds: int) -> None:
-        """After `seconds`, sends a soft nudge instead of force-transitioning.
-        The AI will gently ask if the candidate is ready to share their approach."""
+        """Sends soft nudge after timeout."""
         await asyncio.sleep(seconds)
         nudge = (
             "[SYSTEM] The think-time timer (60s) has elapsed, but the candidate may still be thinking. "
@@ -204,7 +198,7 @@ class InterviewAgent:
         self._pending_timer_msg = nudge
 
     async def _start_timer(self, seconds: int, target_state: AgentState) -> None:
-        """Handles delayed automatic state transitions (used for non-think timers)."""
+        """Handles delayed automatic state transitions."""
         await asyncio.sleep(seconds)
         msg = await self.handle_event("timer_expired", None)
         if msg:

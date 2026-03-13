@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Firebase
+# Firebase init
 firebase_cred_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 storage_bucket = os.getenv("GCS_BUCKET_NAME")
 
@@ -203,7 +203,7 @@ async def list_questions():
 
 @app.post("/sessions/{session_id}/send-invite")
 async def send_invite(session_id: str, body: SendInviteRequest):
-    """Send interview invite email to the candidate."""
+    """Sends interview invite email."""
     if not db:
         raise HTTPException(status_code=503, detail="Firestore unavailable")
     doc = db.collection("sessions").document(session_id).get()
