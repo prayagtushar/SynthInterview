@@ -8,6 +8,8 @@ import { Link } from "lucide-react";
 export default function RecruiterDashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">("idle");
   const [config, setConfig] = useState({
     candidateEmail: "",
     difficulty: "Medium",
@@ -50,6 +52,27 @@ export default function RecruiterDashboard() {
     const link = `${window.location.origin}/session?id=${sessionData.sessionId}`;
     navigator.clipboard.writeText(link);
     alert("Link copied to clipboard!");
+  };
+
+  const sendEmailInvite = async () => {
+    setIsSendingEmail(true);
+    setEmailStatus("idle");
+    try {
+      const response = await fetch(
+        `http://localhost:8000/sessions/${sessionData.sessionId}/send-invite`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appUrl: window.location.origin }),
+        }
+      );
+      const data = await response.json();
+      setEmailStatus(data.success ? "sent" : "failed");
+    } catch {
+      setEmailStatus("failed");
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   return (
@@ -183,8 +206,40 @@ export default function RecruiterDashboard() {
               </div>
 
               <div className="flex flex-col gap-3">
+                {/* Send Email Invite */}
                 <button
-                  onClick={() => setSessionData(null)}
+                  onClick={sendEmailInvite}
+                  disabled={isSendingEmail || emailStatus === "sent"}
+                  className="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                      </svg>
+                      Sending…
+                    </>
+                  ) : emailStatus === "sent" ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      Email Sent!
+                    </>
+                  ) : (
+                    "Send Email Invite"
+                  )}
+                </button>
+
+                {emailStatus === "failed" && (
+                  <p className="text-[10px] text-red-400 text-center">
+                    Email failed — SMTP not configured. Share the link manually.
+                  </p>
+                )}
+
+                <button
+                  onClick={() => { setSessionData(null); setEmailStatus("idle"); }}
                   className="text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
                 >
                   Create Another

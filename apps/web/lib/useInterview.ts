@@ -2,6 +2,13 @@
 
 import { useRef, useState, useCallback } from "react";
 
+// States in which an active interview is happening — used for session cleanup
+const ACTIVE_STATES = new Set([
+  "GREETING", "ENV_CHECK", "PROBLEM_DELIVERY", "THINK_TIME",
+  "APPROACH_LISTEN", "CODING", "HINT_DELIVERY", "TESTING",
+  "OPTIMIZATION", "FLAGGED", "SCREEN_NOT_VISIBLE",
+]);
+
 export function useInterview(sessionId: string = "default-session") {
   const [isConnected, setIsConnected] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
@@ -9,13 +16,16 @@ export function useInterview(sessionId: string = "default-session") {
   const [screenLost, setScreenLost] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
   const [violationReason, setViolationReason] = useState<string | null>(null);
   const [tabSwitchWarning, setTabSwitchWarning] = useState<{
     count: number;
     max: number;
   } | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
+  // Increments each time connect() is called so consumers can reset their own state
+  const [resetKey, setResetKey] = useState(0);
+  // True once the agent has finished its opening greeting turn — gates the Share Screen button
+  const [greetingDone, setGreetingDone] = useState(false);
   const [questionData, setQuestionData] = useState<{
     title: string;
     description: string;
@@ -23,6 +33,7 @@ export function useInterview(sessionId: string = "default-session") {
     optimalTimeComplexity: string;
     optimalSpaceComplexity: string;
   } | null>(null);
+  const [scorecardData, setScorecardData] = useState<Record<string, unknown> | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -32,7 +43,6 @@ export function useInterview(sessionId: string = "default-session") {
   const screenActiveRef = useRef<boolean>(true); // phase-gated frame sending
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const vadSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const wasUserSpeakingRef = useRef(false); // did user speak in this turn?
   // Playback context as refs so they're accessible outside connect() closure
   const playbackCtxRef = useRef<AudioContext | null>(null);
   const nextPlayAtRef = useRef(0);
@@ -45,16 +55,18 @@ export function useInterview(sessionId: string = "default-session") {
   const visibilityHandlerRef = useRef<(() => void) | null>(null);
   // Ref mirror of currentState so the visibilitychange closure reads live value
   const currentStateRef = useRef("IDLE");
-  // ENV_CHECK clean-stay timer
-  const envCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
-  // Tab-away auto-terminate timer (10s)
+  // Tab-away auto-terminate timer
   const tabReturnTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Screen-loss auto-terminate timer (10s)
+  const screenLostTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Frame worker for offscreen canvas encoding (Fix 5)
   const frameWorkerRef = useRef<Worker | null>(null);
   // Code sync debounce timer (Fix 1)
   const codeSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Copy buffer tracking for paste false-positive prevention (Fix 6)
   const lastCopiedTextRef = useRef<string>("");
+  // beforeunload handler ref so we can remove it on disconnect
+  const beforeUnloadRef = useRef<(() => void) | null>(null);
 
   // ── Helper: send a JSON event over WebSocket ────────────────────────────
   const send = useCallback((obj: object) => {
@@ -159,11 +171,9 @@ export function useInterview(sessionId: string = "default-session") {
             console.log(`[Audio] Sent ${audioChunksSent} chunks to backend`);
           }
 
-          // VAD: drive isUserSpeaking and isThinking states
+          // VAD: drive isUserSpeaking state
           if (rms > VAD_THRESHOLD) {
             setIsUserSpeaking(true);
-            wasUserSpeakingRef.current = true;
-            setIsThinking(false);
             if (vadSilenceTimerRef.current) {
               clearTimeout(vadSilenceTimerRef.current);
               vadSilenceTimerRef.current = null;
@@ -173,9 +183,6 @@ export function useInterview(sessionId: string = "default-session") {
             vadSilenceTimerRef.current = setTimeout(() => {
               setIsUserSpeaking(false);
               vadSilenceTimerRef.current = null;
-              if (wasUserSpeakingRef.current) {
-                setIsThinking(true); // waiting for agent to respond
-              }
             }, 400);
           }
         } catch (err) {
@@ -226,6 +233,13 @@ export function useInterview(sessionId: string = "default-session") {
         clearInterval(frameIntervalRef.current);
         frameIntervalRef.current = null;
       }
+      // Start 10s auto-terminate timer
+      if (screenLostTimerRef.current) clearTimeout(screenLostTimerRef.current);
+      screenLostTimerRef.current = setTimeout(() => {
+        screenLostTimerRef.current = null;
+        setIsTerminated(true);
+        send({ type: "event", payload: "terminate_session", data: { reason: "screen_share_not_restored" } });
+      }, 10_000);
       if (isSpeakingRef.current) {
         // Agent is mid-sentence — let it finish, then warn about missing screen
         console.log(
@@ -297,6 +311,12 @@ export function useInterview(sessionId: string = "default-session") {
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     setScreenLost(true);
     send({ type: "event", payload: "screen_share_ended" });
+    if (screenLostTimerRef.current) clearTimeout(screenLostTimerRef.current);
+    screenLostTimerRef.current = setTimeout(() => {
+      screenLostTimerRef.current = null;
+      setIsTerminated(true);
+      send({ type: "event", payload: "terminate_session", data: { reason: "screen_share_not_restored" } });
+    }, 10_000);
   }, [send]);
 
   // ── Re-share screen after it was stopped ────────────────────────────────
@@ -306,6 +326,11 @@ export function useInterview(sessionId: string = "default-session") {
         video: { frameRate: 5 },
         audio: false,
       });
+      // Cancel the auto-terminate timer since screen was restored
+      if (screenLostTimerRef.current) {
+        clearTimeout(screenLostTimerRef.current);
+        screenLostTimerRef.current = null;
+      }
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = newStream;
       if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
@@ -349,8 +374,36 @@ export function useInterview(sessionId: string = "default-session") {
 
   // ── Connect: open WebSocket only — no media acquired yet ────────────────
   const connect = useCallback(() => {
+    // Reset all hook state for a fresh session
+    setFeedback([]);
+    setCurrentState("IDLE");
+    currentStateRef.current = "IDLE";
+    setScreenLost(false);
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
+    setIsUserSpeaking(false);
+    screenShareLostPendingRef.current = false;
+    setViolationReason(null);
+    setTabSwitchWarning(null);
+    setIsTerminated(false);
+    setQuestionData(null);
+    setScorecardData(null);
+    setGreetingDone(false);
+    tabSwitchCountRef.current = 0;
+    setResetKey((k) => k + 1);
+
     const ws = new WebSocket(`ws://localhost:8000/ws/live/${sessionId}`);
     socketRef.current = ws;
+
+    // Send end_interview when the tab/window is closed mid-session
+    const handleBeforeUnload = () => {
+      if (ws.readyState === WebSocket.OPEN && ACTIVE_STATES.has(currentStateRef.current)) {
+        ws.send(JSON.stringify({ type: "event", payload: "end_interview", data: { reason: "page_closed" } }));
+      }
+    };
+    if (beforeUnloadRef.current) window.removeEventListener("beforeunload", beforeUnloadRef.current);
+    beforeUnloadRef.current = handleBeforeUnload;
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     ws.onopen = () => {
       setIsConnected(true);
@@ -374,12 +427,9 @@ export function useInterview(sessionId: string = "default-session") {
         }
         if (
           data.payload === "COMPLETED" &&
-          data.metadata?.terminated_for_cheating
+          (data.metadata?.terminated_for_cheating || data.metadata?.terminated_screen_loss)
         ) {
           setIsTerminated(true);
-        }
-        if (data.payload === "ENV_CHECK") {
-          startEnvCheckTimer();
         }
         if (data.payload === "SCREEN_NOT_VISIBLE") {
           setScreenLost(true);
@@ -396,12 +446,16 @@ export function useInterview(sessionId: string = "default-session") {
           playbackCtxRef.current = null;
           nextPlayAtRef.current = 0;
         }
+      } else if (data.type === "scorecard") {
+        setScorecardData(data.payload);
       } else if (data.type === "turn_complete") {
-        // Gemini's turn is definitively done — clear Speaking and Thinking
+        // Gemini's turn is definitively done — clear Speaking
         setIsSpeaking(false);
         isSpeakingRef.current = false;
-        setIsThinking(false);
-        wasUserSpeakingRef.current = false; // reset for next candidate turn
+        // First turn_complete in GREETING means the agent has finished its opening speech
+        if (currentStateRef.current === "GREETING") {
+          setGreetingDone(true);
+        }
         if (speakingTimerRef.current) {
           clearTimeout(speakingTimerRef.current);
           speakingTimerRef.current = null;
@@ -415,7 +469,6 @@ export function useInterview(sessionId: string = "default-session") {
         // Agent started (or is) speaking
         setIsSpeaking(true);
         isSpeakingRef.current = true;
-        setIsThinking(false); // agent responded — no longer thinking
         if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
         // 3s fallback in case turn_complete is delayed
         speakingTimerRef.current = setTimeout(() => setIsSpeaking(false), 3000);
@@ -459,23 +512,12 @@ export function useInterview(sessionId: string = "default-session") {
     ws.onerror = (e) => console.error("WebSocket error:", e);
 
     // ── Tab switch detection via Page Visibility API ─────────────────────
-    const TAB_SWITCH_LIMIT = 3;
-    const ENV_CHECK_CLEAN_DURATION = 12000; // 12s of continuous screen presence → env verified
+    const TAB_SWITCH_LIMIT = 2;
+    const TAB_AWAY_TERMINATE_MS = 6000; // 6s away → auto-terminate
 
-    // Starts (or restarts) the ENV_CHECK clean-stay timer.
-    // Fires workspace_clean after 12 continuous seconds with no tab switch.
-    const startEnvCheckTimer = () => {
-      if (envCheckTimerRef.current) clearTimeout(envCheckTimerRef.current);
-      envCheckTimerRef.current = setTimeout(() => {
-        envCheckTimerRef.current = null;
-        send({ type: "event", payload: "workspace_clean" });
-      }, ENV_CHECK_CLEAN_DURATION);
-    };
-
-    // Penalise switches in ENV_CHECK AND all active coding phases.
+    // Penalise switches in all active coding phases.
     // GREETING is excluded — OS screen-picker legitimately hides the tab there.
     const TAB_GUARDED_STATES = new Set([
-      "ENV_CHECK",
       "PROBLEM_DELIVERY",
       "APPROACH_LISTEN",
       "CODING",
@@ -483,12 +525,11 @@ export function useInterview(sessionId: string = "default-session") {
       "TESTING",
       "OPTIMIZATION",
     ]);
-    const TAB_AWAY_TERMINATE_MS = 10000; // 10s away after warning → auto-terminate
 
     const handleVisibilityChange = () => {
       // ── Candidate RETURNED to tab ─────────────────────────────
       if (!document.hidden) {
-        // Cancel the 10s auto-terminate timer
+        // Cancel the auto-terminate timer
         if (tabReturnTimerRef.current) {
           clearTimeout(tabReturnTimerRef.current);
           tabReturnTimerRef.current = null;
@@ -498,26 +539,22 @@ export function useInterview(sessionId: string = "default-session") {
 
       // ── Tab hidden (switched away) ────────────────────────────
       if (!TAB_GUARDED_STATES.has(currentStateRef.current)) return;
-      // During ENV_CHECK: reset the clean-stay timer so they must stay 12s straight
-      if (currentStateRef.current === "ENV_CHECK") {
-        startEnvCheckTimer();
-      }
       tabSwitchCountRef.current += 1;
       const count = tabSwitchCountRef.current;
       setTabSwitchWarning({ count, max: TAB_SWITCH_LIMIT });
       send({ type: "event", payload: "tab_switch", data: { count } });
 
       if (count >= TAB_SWITCH_LIMIT) {
-        // Hard limit reached — terminate immediately
+        // Hard limit reached — let agent say goodbye, then close
         setIsTerminated(true);
         send({
           type: "event",
           payload: "end_interview",
           data: { reason: "tab_switch_limit" },
         });
-        setTimeout(() => socketRef.current?.close(), 150);
+        setTimeout(() => socketRef.current?.close(), 5000);
       } else {
-        // Start 10s countdown — if they don't come back, terminate
+        // Start countdown — if they don't come back, terminate
         if (tabReturnTimerRef.current) clearTimeout(tabReturnTimerRef.current);
         tabReturnTimerRef.current = setTimeout(() => {
           tabReturnTimerRef.current = null;
@@ -527,7 +564,7 @@ export function useInterview(sessionId: string = "default-session") {
             payload: "end_interview",
             data: { reason: "tab_away_timeout" },
           });
-          setTimeout(() => socketRef.current?.close(), 150);
+          setTimeout(() => socketRef.current?.close(), 5000);
         }, TAB_AWAY_TERMINATE_MS);
       }
     };
@@ -537,12 +574,22 @@ export function useInterview(sessionId: string = "default-session") {
 
   // ── Disconnect ───────────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
+    // Remove beforeunload handler — we're handling cleanup explicitly here
+    if (beforeUnloadRef.current) {
+      window.removeEventListener("beforeunload", beforeUnloadRef.current);
+      beforeUnloadRef.current = null;
+    }
+    // Notify backend so it can mark the session as ended in Firestore
+    if (socketRef.current?.readyState === WebSocket.OPEN && ACTIVE_STATES.has(currentStateRef.current)) {
+      socketRef.current.send(JSON.stringify({ type: "event", payload: "end_interview" }));
+    }
     socketRef.current?.close();
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
     if (vadSilenceTimerRef.current) clearTimeout(vadSilenceTimerRef.current);
+    if (screenLostTimerRef.current) { clearTimeout(screenLostTimerRef.current); screenLostTimerRef.current = null; }
     audioContextRef.current?.close();
     playbackCtxRef.current?.close();
     playbackCtxRef.current = null;
@@ -550,8 +597,6 @@ export function useInterview(sessionId: string = "default-session") {
     setIsSpeaking(false);
     isSpeakingRef.current = false;
     setIsUserSpeaking(false);
-    setIsThinking(false);
-    wasUserSpeakingRef.current = false;
     screenShareLostPendingRef.current = false;
     // Remove tab switch listener and reset counter
     if (visibilityHandlerRef.current) {
@@ -563,10 +608,6 @@ export function useInterview(sessionId: string = "default-session") {
     }
     tabSwitchCountRef.current = 0;
     setTabSwitchWarning(null);
-    if (envCheckTimerRef.current) {
-      clearTimeout(envCheckTimerRef.current);
-      envCheckTimerRef.current = null;
-    }
     if (tabReturnTimerRef.current) {
       clearTimeout(tabReturnTimerRef.current);
       tabReturnTimerRef.current = null;
@@ -585,14 +626,16 @@ export function useInterview(sessionId: string = "default-session") {
     isConnected,
     feedback,
     currentState,
+    resetKey,
+    greetingDone,
     screenLost,
     isSpeaking,
     isUserSpeaking,
-    isThinking,
     violationReason,
     tabSwitchWarning,
     isTerminated,
     questionData,
+    scorecardData,
     isListening: isConnected && !isSpeaking,
     connect,
     disconnect,

@@ -75,6 +75,31 @@ interface ExecResult {
   execTime?: number;
 }
 
+interface TestCaseResult {
+  label: string;
+  passed: boolean;
+  actual: string;
+  expected: string;
+}
+
+interface RunResult {
+  passed: number;
+  total: number;
+  results: TestCaseResult[];
+  error: string | null;
+  execTime?: number;
+}
+
+interface ScorecardData {
+  scores: Record<string, number>;
+  overall_score: number;
+  rating: string;
+  feedback: string;
+  dimension_feedback: Record<string, string>;
+  improvement_areas: string[];
+  strengths: string[];
+}
+
 // State badge colors
 const STATE_COLORS: Record<string, string> = {
   IDLE: "bg-gray-800 text-gray-400",
@@ -129,15 +154,7 @@ const MANUAL_TRANSITIONS: Record<
     },
   ],
   ENV_CHECK: [],
-  PROBLEM_DELIVERY: [
-    {
-      label: "I Understand",
-      event: "candidate_signal",
-      signal:
-        "The candidate says they understand the problem and are ready to think about their approach.",
-      icon: <CheckCircle size={12} />,
-    },
-  ],
+  PROBLEM_DELIVERY: [],
   THINK_TIME: [],
   APPROACH_LISTEN: [],
   CODING: [
@@ -202,11 +219,13 @@ export default function SessionView() {
     screenLost,
     isSpeaking,
     isUserSpeaking,
-    isThinking,
     violationReason,
     tabSwitchWarning,
     isTerminated,
     questionData,
+    scorecardData,
+    resetKey,
+    greetingDone,
     connect,
     disconnect,
     sendEvent,
@@ -217,6 +236,28 @@ export default function SessionView() {
     stopScreenShare,
     acquireAndStartMedia,
   } = useInterview(sessionId);
+
+  // Sync scorecard from WebSocket into local state
+  useEffect(() => {
+    if (scorecardData) {
+      setScorecard(scorecardData as ScorecardData);
+      setActiveTab("scorecard");
+    }
+  }, [scorecardData]);
+
+  // Reset all local editor/session state when a new session begins
+  useEffect(() => {
+    if (resetKey === 0) return; // skip initial mount
+    setCode(DEFAULT_CODE["javascript"]);
+    setLanguage("javascript");
+    setExecResult(null);
+    setRunResult(null);
+    setShowTerminal(false);
+    setScorecard(null);
+    setActiveTab("feedback");
+    problemInjected.current = false;
+    problemHeaderLines.current = 0;
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [isMuted, setIsMuted] = useState(false);
   const [activeTab, setActiveTab] = useState<"feedback" | "scorecard">(
@@ -236,7 +277,9 @@ export default function SessionView() {
   // Code execution state
   const [isRunning, setIsRunning] = useState(false);
   const [execResult, setExecResult] = useState<ExecResult | null>(null);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
 
   // Keep paste-handler ref in sync with currentState
   useEffect(() => {
@@ -287,52 +330,41 @@ export default function SessionView() {
     [questionData],
   );
 
-  // ---------- Piston code execution ----------
-  const runCode = useCallback(async () => {
-    const runtime = PISTON_RUNTIMES[language];
-    if (!runtime) return;
+  // ---------- Backend test-case execution ----------
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+  const runCode = useCallback(async () => {
     setIsRunning(true);
     setShowTerminal(true);
+    setRunResult(null);
     setExecResult(null);
     const t0 = Date.now();
 
     try {
-      const res = await fetch("https://emkc.org/api/v2/piston/execute", {
+      const res = await fetch(`${API_BASE}/sessions/${sessionId}/run-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language: runtime.language,
-          version: runtime.version,
-          files: [
-            {
-              name: `solution${currentLang.ext}`,
-              content: code,
-            },
-          ],
-          stdin: "",
-          args: [],
-          compile_timeout: 10000,
-          run_timeout: 5000,
-        }),
+        body: JSON.stringify({ code, language }),
       });
-      if (!res.ok) throw new Error(`Piston error ${res.status}`);
-      const data = await res.json();
-      const result: ExecResult = {
-        stdout: data.run?.stdout ?? "",
-        stderr: (data.compile?.stderr ?? "") + (data.run?.stderr ?? ""),
-        exitCode: data.run?.code ?? null,
-        execTime: Date.now() - t0,
-      };
-      setExecResult(result);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data: RunResult = await res.json();
+      data.execTime = Date.now() - t0;
+      setRunResult(data);
 
-      // Feed actual execution result to SYNTH
+      // Feed results to SYNTH
       if (isConnected) {
-        const summary =
-          `Candidate ran their ${language} code (exit ${result.exitCode}).\n` +
-          (result.stderr
-            ? `Errors:\n${result.stderr.slice(0, 400)}`
-            : `Output:\n${result.stdout.slice(0, 400) || "(no output)"}`);
+        const summary = data.error
+          ? `Candidate ran code — error: ${data.error.slice(0, 200)}`
+          : `Candidate ran tests: ${data.passed}/${data.total} passed.${
+              data.results.some((r) => !r.passed)
+                ? " Failing: " +
+                  data.results
+                    .filter((r) => !r.passed)
+                    .map((r) => `${r.label} (got ${r.actual}, expected ${r.expected})`)
+                    .slice(0, 2)
+                    .join("; ")
+                : " All tests passed!"
+            }`;
         sendEvent("candidate_signal", { signal: summary });
       }
     } catch (err) {
@@ -340,11 +372,12 @@ export default function SessionView() {
         stdout: "",
         stderr: err instanceof Error ? err.message : "Unknown execution error",
         exitCode: -1,
+        execTime: Date.now() - t0,
       });
     } finally {
       setIsRunning(false);
     }
-  }, [code, language, currentLang.ext, isConnected, sendEvent]);
+  }, [code, language, sessionId, isConnected, sendEvent, API_BASE]);
 
   // Generate problem statement as language-specific comments
   function generateProblemComments(
@@ -360,15 +393,7 @@ export default function SessionView() {
       lines.push(
         ` * ═══════════════════════════════════════════════════════════`,
       );
-      lines.push(` *  ${q.title}`);
-      lines.push(
-        ` * ═══════════════════════════════════════════════════════════`,
-      );
     } else {
-      lines.push(
-        "# ═══════════════════════════════════════════════════════════",
-      );
-      lines.push(`#  ${q.title}`);
       lines.push(
         "# ═══════════════════════════════════════════════════════════",
       );
@@ -654,29 +679,16 @@ export default function SessionView() {
           <div className="flex items-center gap-3">
             {/* 4-state audio indicator: Speaking / Thinking / Listening / Offline */}
             {(() => {
+              const conversationStates = new Set(["THINK_TIME", "APPROACH_LISTEN", "CODING", "HINT_DELIVERY", "TESTING", "OPTIMIZATION"]);
               const s = isSpeaking
-                ? {
-                    dot: "bg-blue-400",
-                    text: "text-blue-400",
-                    label: "Speaking",
-                  }
-                : isThinking
-                  ? {
-                      dot: "bg-amber-400",
-                      text: "text-amber-400",
-                      label: "Thinking…",
-                    }
-                  : isConnected
-                    ? {
-                        dot: "bg-green-400",
-                        text: "text-green-400",
-                        label: "Listening",
-                      }
-                    : {
-                        dot: "bg-red-500",
-                        text: "text-red-400",
-                        label: "AI Offline",
-                      };
+                ? { dot: "bg-purple-400", text: "text-purple-400", label: "Synth Speaking" }
+                : isUserSpeaking
+                  ? { dot: "bg-green-400", text: "text-green-400", label: "Listening to you" }
+                  : isConnected && conversationStates.has(currentState)
+                    ? { dot: "bg-green-400 opacity-60", text: "text-green-400", label: "Your turn" }
+                    : isConnected
+                      ? { dot: "bg-gray-500", text: "text-gray-400", label: "Connected" }
+                      : { dot: "bg-red-500", text: "text-red-400", label: "AI Offline" };
               return (
                 <div className="flex items-center gap-2">
                   <div
@@ -780,50 +792,38 @@ export default function SessionView() {
 
         {/* Editor + AI Panel */}
         <div className="flex-1 flex min-h-0 relative">
-          {/* GREETING / Request Screen Share Overlay */}
-          {currentState === "GREETING" &&
-            isConnected &&
-            feedback.length > 0 &&
-            !isSpeaking && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-950/85 z-20 gap-5">
-                <div className="flex flex-col items-center text-center space-y-4 max-w-sm bg-[#080808] border border-white/10 p-8 rounded-lg shadow-2xl">
-                  <Monitor
-                    size={48}
-                    className="text-blue-400 mb-2 animate-pulse"
-                  />
-                  <h3 className="text-white font-bold text-lg tracking-wide uppercase">
-                    Share Screen & Mic
-                  </h3>
-                  <p className="text-neutral-400 text-xs leading-relaxed mb-4">
-                    The interviewer is ready. Please share your entire screen
-                    and allow microphone access to proceed.
-                  </p>
-                  <button
-                    onClick={acquireAndStartMedia}
-                    className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Monitor size={14} />
-                    Start
-                  </button>
-                </div>
-              </div>
-            )}
-
-          {/* ENV_CHECK overlay — shown while environment is being verified */}
-          {currentState === "ENV_CHECK" && (
+          {/* GREETING overlay — always shown while in GREETING, button only enabled after agent finishes speaking */}
+          {currentState === "GREETING" && isConnected && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-950/85 z-20 gap-5">
-              <div className="w-12 h-12 rounded-full border-4 border-yellow-400 border-t-transparent animate-spin" />
-              <div className="text-center space-y-2">
-                <p className="text-white font-bold text-lg tracking-wide uppercase">
-                  Environment Check
+              <div className="flex flex-col items-center text-center space-y-4 max-w-sm bg-[#080808] border border-white/10 p-8 rounded-lg shadow-2xl">
+                <Monitor
+                  size={48}
+                  className={`mb-2 ${greetingDone ? "text-blue-400 animate-pulse" : "text-gray-600"}`}
+                />
+                <h3 className="text-white font-bold text-lg tracking-wide uppercase">
+                  Share Screen & Mic
+                </h3>
+                <p className="text-neutral-400 text-xs leading-relaxed mb-4">
+                  {greetingDone
+                    ? "The interviewer is ready. Share your entire screen and allow microphone access to begin."
+                    : "Please wait — Synth is introducing itself…"}
                 </p>
-                <p className="text-neutral-400 text-xs text-center max-w-xs leading-relaxed">
-                  Stay on this tab. Verification completes automatically after
-                  12 seconds of continuous presence.
-                </p>
+                <button
+                  onClick={acquireAndStartMedia}
+                  disabled={!greetingDone}
+                  className={`w-full px-5 py-2.5 text-xs font-bold uppercase tracking-widest rounded transition-colors flex items-center justify-center gap-2 ${
+                    greetingDone
+                      ? "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                      : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                  }`}
+                >
+                  <Monitor size={14} />
+                  {greetingDone ? "Share Screen & Mic" : "Waiting for Synth…"}
+                </button>
               </div>
             </div>
           )}
+
 
           {/* Monaco Editor with Toolbar */}
           <div className="flex-[3] min-w-0 border-r border-white/5 flex flex-col">
@@ -958,6 +958,11 @@ export default function SessionView() {
                     folding: true,
                     lineDecorationsWidth: 8,
                     lineNumbersMinChars: 3,
+                    // Disable built-in IntelliSense suggestions (Map, Set, etc.)
+                    quickSuggestions: false,
+                    suggestOnTriggerCharacters: false,
+                    wordBasedSuggestions: "off",
+                    parameterHints: { enabled: false },
                   }}
                 />
               </div>
@@ -969,25 +974,30 @@ export default function SessionView() {
                   <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/5 shrink-0">
                     <div className="flex items-center gap-2">
                       <Terminal size={10} className="text-gray-500" />
-                      <span className="text-[10px] font-medium text-gray-400">Output</span>
-                      {execResult && (
+                      <span className="text-[10px] font-medium text-gray-400">Test Results</span>
+                      {runResult && (
                         <span
                           className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
-                            execResult.exitCode === 0
+                            runResult.passed === runResult.total && runResult.total > 0
                               ? "bg-green-500/10 text-green-400"
+                              : runResult.total === 0
+                              ? "bg-gray-500/10 text-gray-400"
                               : "bg-red-500/10 text-red-400"
                           }`}
                         >
-                          exit {execResult.exitCode}
-                          {execResult.execTime != null &&
-                            ` · ${execResult.execTime}ms`}
+                          {runResult.total > 0
+                            ? `${runResult.passed}/${runResult.total} passed`
+                            : "no tests"}
+                          {runResult.execTime != null && ` · ${runResult.execTime}ms`}
+                        </span>
+                      )}
+                      {execResult && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
+                          error
                         </span>
                       )}
                       {isRunning && (
-                        <Loader2
-                          size={10}
-                          className="animate-spin text-gray-500"
-                        />
+                        <Loader2 size={10} className="animate-spin text-gray-500" />
                       )}
                     </div>
                     <div className="flex items-center gap-1">
@@ -1002,6 +1012,7 @@ export default function SessionView() {
                         onClick={() => {
                           setShowTerminal(false);
                           setExecResult(null);
+                          setRunResult(null);
                         }}
                         title="Close terminal"
                         className="p-0.5 text-gray-600 hover:text-gray-300 rounded transition-colors"
@@ -1012,24 +1023,70 @@ export default function SessionView() {
                   </div>
 
                   {/* Terminal content */}
-                  <div className="flex-1 overflow-auto p-3 font-mono text-[11px] leading-relaxed">
-                    {isRunning && !execResult && (
-                      <span className="text-gray-500 animate-pulse">
-                        $ running…
-                      </span>
+                  <div className="flex-1 overflow-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5">
+                    {isRunning && !runResult && !execResult && (
+                      <span className="text-gray-500 animate-pulse">$ running tests…</span>
                     )}
+
+                    {/* Per-test-case results */}
+                    {runResult && (
+                      <>
+                        {runResult.error && (
+                          <pre className="text-red-400 whitespace-pre-wrap text-[10px] mb-2">
+                            {runResult.error}
+                          </pre>
+                        )}
+                        {runResult.results.length > 0
+                          ? runResult.results.map((r, i) => (
+                              <div
+                                key={i}
+                                className={`flex items-start gap-2 px-2 py-1.5 rounded ${
+                                  r.passed
+                                    ? "bg-green-500/5 border border-green-500/15"
+                                    : "bg-red-500/5 border border-red-500/15"
+                                }`}
+                              >
+                                <span
+                                  className={`shrink-0 mt-0.5 ${r.passed ? "text-green-400" : "text-red-400"}`}
+                                >
+                                  {r.passed ? "✓" : "✗"}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <span className={`font-bold ${r.passed ? "text-green-300" : "text-red-300"}`}>
+                                    {r.label}
+                                  </span>
+                                  {!r.passed && (
+                                    <div className="mt-0.5 text-[10px] text-gray-500 space-y-0.5">
+                                      <div>
+                                        <span className="text-gray-600">got </span>
+                                        <span className="text-red-300">{r.actual}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-600">exp </span>
+                                        <span className="text-green-300/70">{r.expected}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          : !runResult.error && (
+                              <span className="text-gray-600">
+                                No auto-executable tests for this question. Run your code manually.
+                              </span>
+                            )}
+                      </>
+                    )}
+
+                    {/* Fallback raw output / error */}
                     {execResult && (
                       <>
-                        {execResult.stderr ? (
-                          <pre className="text-red-400 whitespace-pre-wrap">
-                            {execResult.stderr}
-                          </pre>
-                        ) : null}
-                        {execResult.stdout ? (
-                          <pre className="text-green-300 whitespace-pre-wrap">
-                            {execResult.stdout}
-                          </pre>
-                        ) : null}
+                        {execResult.stderr && (
+                          <pre className="text-red-400 whitespace-pre-wrap">{execResult.stderr}</pre>
+                        )}
+                        {execResult.stdout && (
+                          <pre className="text-green-300 whitespace-pre-wrap">{execResult.stdout}</pre>
+                        )}
                         {!execResult.stdout && !execResult.stderr && (
                           <span className="text-gray-600">(no output)</span>
                         )}
@@ -1069,34 +1126,31 @@ export default function SessionView() {
                   <p className="text-xs font-bold text-white tracking-wide">
                     Synth
                   </p>
-                  <p className="text-[10px] text-gray-500 font-medium">
+                  <p className="text-[10px] font-medium">
                     {isSpeaking
-                      ? "Speaking…"
-                      : isThinking
-                        ? "Thinking…"
+                      ? <span className="text-purple-400">Speaking…</span>
+                      : isUserSpeaking
+                        ? <span className="text-green-400">Listening to you…</span>
                         : isConnected
-                          ? "Listening"
-                          : "Offline"}
+                          ? <span className="text-gray-500">Your turn to speak</span>
+                          : <span className="text-gray-600">Offline</span>}
                   </p>
                 </div>
                 {/* Audio visualizer bars */}
                 <div className="flex items-end gap-[2px] h-5">
-                  {[1, 2, 3, 4, 5].map((i) => (
+                  {[10, 16, 8, 18, 12].map((h, i) => (
                     <div
                       key={i}
-                      className={`w-[3px] rounded-full transition-all duration-150 ${
+                      className={`w-[3px] rounded-full transition-all duration-300 ${
                         isSpeaking
                           ? "bg-purple-400/80 animate-pulse"
                           : isUserSpeaking
-                            ? "bg-green-400/60"
+                            ? "bg-green-400/70 animate-pulse"
                             : "bg-white/10"
                       }`}
                       style={{
-                        height:
-                          isSpeaking || isUserSpeaking
-                            ? `${6 + Math.random() * 14}px`
-                            : "4px",
-                        animationDelay: `${i * 75}ms`,
+                        height: isSpeaking || isUserSpeaking ? `${h}px` : "4px",
+                        animationDelay: `${i * 80}ms`,
                       }}
                     />
                   ))}
@@ -1172,9 +1226,7 @@ export default function SessionView() {
                       {isConnected
                         ? isSpeaking
                           ? "Synth is speaking…"
-                          : isThinking
-                            ? "Synth is thinking…"
-                            : "Synth is listening…"
+                          : "Synth is listening…"
                         : "Start the interview to begin."}
                     </p>
                   </div>
@@ -1195,39 +1247,116 @@ export default function SessionView() {
                 )}
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                {[
-                  { label: "Problem Understanding", key: "problem" },
-                  { label: "Approach Quality", key: "approach" },
-                  { label: "Code Quality", key: "code" },
-                  { label: "Communication", key: "communication" },
-                  { label: "Test Performance", key: "tests" },
-                  { label: "Optimization", key: "optimization" },
-                ].map(({ label }) => (
-                  <div key={label} className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-medium">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="text-gray-700">
-                        {currentState === "COMPLETED" ? "—/5" : "..."}
-                      </span>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {scorecard ? (
+                  <>
+                    {/* Overall score */}
+                    <div className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded">
+                      <div className="w-12 h-12 rounded-full border-2 border-white/20 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-black text-white">{scorecard.overall_score}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">{scorecard.rating}</p>
+                        <p className="text-[10px] text-gray-500">Overall Score</p>
+                      </div>
                     </div>
-                    <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-white/40 transition-all duration-1000 ${
-                          currentState === "COMPLETED" ? "w-1/2" : "w-0"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                ))}
 
-                <div className="border border-dashed border-white/10 rounded p-3 mt-4">
-                  <p className="text-[10px] text-gray-600 text-center leading-relaxed">
-                    {currentState === "COMPLETED"
-                      ? "Scorecard generated — check recruiter dashboard."
-                      : "Full scorecard generated after interview ends."}
-                  </p>
-                </div>
+                    {/* Dimension scores */}
+                    {[
+                      { label: "Problem Understanding", key: "problem_understanding" },
+                      { label: "Approach & Algorithm", key: "approach" },
+                      { label: "Code Quality", key: "code_quality" },
+                      { label: "Communication", key: "communication" },
+                      { label: "Correctness", key: "correctness" },
+                      { label: "Time Management", key: "time_management" },
+                    ].map(({ label, key }) => {
+                      const score = scorecard.scores?.[key] ?? 0;
+                      const pct = Math.min(100, Math.max(0, score));
+                      const color = pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
+                      return (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-medium">
+                            <span className="text-gray-400">{label}</span>
+                            <span className="text-white font-bold">{score}</span>
+                          </div>
+                          <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${color} rounded-full transition-all duration-1000`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          {scorecard.dimension_feedback?.[key] && (
+                            <p className="text-[9px] text-gray-600 leading-relaxed">
+                              {scorecard.dimension_feedback[key]}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Feedback */}
+                    {scorecard.feedback && (
+                      <div className="border border-white/5 rounded p-3 bg-white/[0.02]">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600 mb-1.5">Feedback</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{scorecard.feedback}</p>
+                      </div>
+                    )}
+
+                    {/* Strengths & Improvements */}
+                    {scorecard.strengths?.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600 mb-1.5">Strengths</p>
+                        <ul className="space-y-1">
+                          {scorecard.strengths.map((s, i) => (
+                            <li key={i} className="text-[10px] text-green-400/80 flex items-start gap-1.5">
+                              <span className="mt-0.5 shrink-0">✓</span>{s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {scorecard.improvement_areas?.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600 mb-1.5">Areas to Improve</p>
+                        <ul className="space-y-1">
+                          {scorecard.improvement_areas.map((a, i) => (
+                            <li key={i} className="text-[10px] text-yellow-400/80 flex items-start gap-1.5">
+                              <span className="mt-0.5 shrink-0">→</span>{a}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="text-[9px] text-gray-700 text-center">Scorecard emailed to candidate.</p>
+                  </>
+                ) : (
+                  <>
+                    {[
+                      { label: "Problem Understanding", key: "problem_understanding" },
+                      { label: "Approach & Algorithm", key: "approach" },
+                      { label: "Code Quality", key: "code_quality" },
+                      { label: "Communication", key: "communication" },
+                      { label: "Correctness", key: "correctness" },
+                      { label: "Time Management", key: "time_management" },
+                    ].map(({ label }) => (
+                      <div key={label} className="space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-medium">
+                          <span className="text-gray-500">{label}</span>
+                          <span className="text-gray-700">—</span>
+                        </div>
+                        <div className="h-0.5 bg-white/5 rounded-full" />
+                      </div>
+                    ))}
+                    <div className="border border-dashed border-white/10 rounded p-3">
+                      <p className="text-[10px] text-gray-600 text-center leading-relaxed">
+                        {currentState === "COMPLETED"
+                          ? "Generating scorecard…"
+                          : "Scorecard generated after interview ends."}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

@@ -4,3 +4,5 @@ firebase-admin
 google-genai
 python-dotenv
 pydantic
+aiosmtplib
+httpx
