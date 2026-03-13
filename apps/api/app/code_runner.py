@@ -1,14 +1,5 @@
-"""
-Code execution runner for SynthInterview.
-Wraps candidate's solve() function in a test harness and runs it against
-structured test cases.
-
-Execution strategy (all local — no external API required):
-  - Python     → sys.executable subprocess
-  - JavaScript → node subprocess
-  - TypeScript → node subprocess (after stripping type annotations)
-  - Java/C++/Go → not yet supported locally; returns a clear message
-"""
+# Local code execution for Python and Node (JS/TS).
+# Java/C++/Go support pending.
 
 import asyncio
 import json
@@ -27,16 +18,7 @@ async def run_code_against_tests(
     language: str,
     question: dict,
 ) -> dict:
-    """
-    Run candidate code against the question's structured_tests.
-    Returns:
-        {
-          "passed": int,
-          "total": int,
-          "results": [{"label": str, "passed": bool, "actual": str, "expected": str}],
-          "error": str | None
-        }
-    """
+    """Runs candidate code against structured tests."""
     structured = question.get("structured_tests")
     if not structured:
         return {
@@ -63,7 +45,7 @@ async def run_code_against_tests(
         if not node:
             return {"passed": 0, "total": len(structured), "results": [],
                     "error": "Node.js is not installed on the server."}
-        # TypeScript: strip type annotations so plain node can run it
+        # Strip TS types for node
         src = _strip_ts_types(harness) if language == "typescript" else harness
         return await _run_subprocess(src, structured, cmd=[node, "{file}"], ext=".js")
 
@@ -78,7 +60,7 @@ async def run_code_against_tests(
 # ── Local subprocess execution ───────────────────────────────────────────────
 
 async def _run_subprocess(harness: str, tests: list, cmd: list[str], ext: str) -> dict:
-    """Write harness to a temp file, run it with the given command, parse output."""
+    """Runs harness in subprocess and parses output."""
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -116,7 +98,7 @@ async def _run_subprocess(harness: str, tests: list, cmd: list[str], ext: str) -
 
 
 def _strip_ts_types(code: str) -> str:
-    """Very lightweight TypeScript → JavaScript: remove type annotations so plain node can run it."""
+    """Lightweight TS to JS stripping."""
     import re
     # Remove `: Type` annotations on parameters and variable declarations
     code = re.sub(r":\s*[A-Za-z<>\[\]|&\s]+(?=[,)=\n{])", "", code)
@@ -153,7 +135,7 @@ def _python_harness(code: str, tests_json: str, sort_compare) -> str:
         compare = "_result == _expected"
     return f"""{code}
 
-# ─── Auto-grader ─────────────────────────────────────────────────────────────
+# ─── Auto-grader ─────────────────────────────────────────────
 import json as _json
 _tests = {tests_json}
 _passed = 0

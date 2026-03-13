@@ -11,12 +11,11 @@ class GeminiLiveClient:
         self.model_id = model_id
         self._session_ctx = None
         self.session = None
-        # Separate queues: realtime (audio/frames) never blocked by text turns
+        # Queues for audio/frames and text turns
         self._realtime_queue: asyncio.Queue = asyncio.Queue()
         self._text_queue: asyncio.Queue = asyncio.Queue()
         self._realtime_task: asyncio.Task | None = None
         self._text_task: asyncio.Task | None = None
-        # Signals when model turn is complete (safe to send next text)
         self._turn_complete = asyncio.Event()
 
     async def connect(self, system_instruction: str, tools: Optional[List[Dict]] = None) -> None:
@@ -24,7 +23,7 @@ class GeminiLiveClient:
             response_modalities=["AUDIO"],
             system_instruction=system_instruction,
             thinking_config=types.ThinkingConfig(
-                thinking_budget=0,  # Disable thinking for fastest response
+                thinking_budget=0,
             ),
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(
@@ -43,7 +42,7 @@ class GeminiLiveClient:
         self._text_task = asyncio.create_task(self._text_loop())
 
     async def _realtime_loop(self):
-        """Drains audio and frame sends immediately — never blocked by text turns."""
+        """Drains audio/frame queue immediately."""
         try:
             while True:
                 kind, payload = await self._realtime_queue.get()
@@ -61,7 +60,7 @@ class GeminiLiveClient:
             pass
 
     async def _text_loop(self):
-        """Sends text turns only after the model's current turn finishes."""
+        """Sends text turns sequentially."""
         try:
             while True:
                 kind, payload = await self._text_queue.get()
@@ -70,16 +69,13 @@ class GeminiLiveClient:
                 try:
                     await asyncio.wait_for(self._turn_complete.wait(), timeout=15)
                     self._turn_complete.clear()
-                    # "context" items use turn_complete=False — Gemini absorbs the info
-                    # silently without generating a response, so the candidate's voice
-                    # remains the next thing Gemini responds to.
+                    # "context" items use turn_complete=False to update state silently.
                     is_context = kind == "context"
                     await self.session.send_client_content(
                         turns={"role": "user", "parts": [{"text": payload}]},
                         turn_complete=not is_context,
                     )
                     if is_context:
-                        # No Gemini turn will follow, so re-set the event immediately.
                         self._turn_complete.set()
                 except asyncio.TimeoutError:
                     print("Gemini: timed out waiting for turn_complete, sending anyway")
@@ -94,13 +90,11 @@ class GeminiLiveClient:
             pass
 
     async def send_text(self, text: str) -> None:
-        """Queue a prompted text turn — Gemini will respond aloud."""
+        """Queue prompted text — Gemini will respond aloud."""
         await self._text_queue.put(("text", text))
 
     async def send_context(self, text: str) -> None:
-        """Queue a silent context update — Gemini reads it but is NOT forced to respond.
-        Use this for code snapshots, background notices, and anything the model should
-        know about without interrupting the candidate's conversation turn."""
+        """Queue silent context update (model reads but doesn't reply)."""
         await self._text_queue.put(("context", text))
 
     async def send_text_urgent(self, text: str) -> None:
@@ -163,7 +157,7 @@ class GeminiLiveClient:
         )
 
     async def listen(self) -> AsyncIterator[dict]:
-        """Persistently yield messages from Gemini across ALL turns."""
+        """Yields messages from Gemini."""
         if not self.session:
             return
         while True:
@@ -253,7 +247,4 @@ class GeminiLiveClient:
             finally:
                 self._session_ctx = None
                 self.session = None
-        # Drain any pending SDK background tasks to suppress
-        # "Task exception never retrieved" from BaseApiClient.aclose()
-        # (known issue: Live API uses WebSocket, so _async_httpx_client is never set)
         await asyncio.sleep(0)
