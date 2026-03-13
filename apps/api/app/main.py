@@ -2,6 +2,7 @@ import os
 import asyncio
 import json
 import uuid
+import time
 from datetime import datetime
 from typing import List, Optional
 
@@ -67,6 +68,7 @@ SCREEN_REQUIRED_STATES = {
     AgentState.HINT_DELIVERY,
     AgentState.TESTING,
     AgentState.OPTIMIZATION,
+    AgentState.FLAGGED,
 }
 
 # ── Tools ─────────────────────────────────────────────────────────────────
@@ -234,18 +236,26 @@ async def send_invite(session_id: str, body: SendInviteRequest):
 
 @app.post("/sessions/{session_id}/run-code")
 async def run_code(session_id: str, body: RunCodeRequest):
-    """Execute candidate code against structured test cases via Piston."""
+    """Execute candidate code against structured test cases."""
     # Try to look up the question from Firestore; fall back gracefully if unavailable
     question_id = "two-sum"
     if db:
         try:
             doc = db.collection("sessions").document(session_id).get()
             if doc.exists:
-                question_id = doc.to_dict().get("questionId", question_id)
-        except Exception:
-            pass
+                sdata = doc.to_dict()
+                # Check top-level first, then metadata
+                question_id = (
+                    sdata.get("questionId")
+                    or sdata.get("metadata", {}).get("questionId")
+                    or question_id
+                )
+        except Exception as e:
+            print(f"[RunCode] Firestore lookup error: {e}")
 
     question = get_question(question_id)
+    print(f"[RunCode] Session={session_id}, question={question_id}, has_tests={question.get('structured_tests') is not None}")
+    
     result = await run_code_against_tests(
         code=body.code,
         language=body.language,
@@ -319,6 +329,52 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
     agent: Optional["InterviewAgent"] = None
 
     try:
+        # ── Check if session is terminated or stale ────────────────────
+        if db:
+            doc = db.collection("sessions").document(session_id).get()
+            if doc.exists:
+                sdata = doc.to_dict()
+                stored_status = sdata.get("status", "IDLE")
+                stored_meta = sdata.get("metadata", {})
+                
+                # Block terminated sessions completely (cheating / privacy violation)
+                if stored_status == "COMPLETED" and (
+                    stored_meta.get("terminated_for_cheating")
+                    or stored_meta.get("terminated_screen_loss")
+                ):
+                    print(f"Session {session_id}: BLOCKED (terminated for violation)")
+                    await websocket.send_json({
+                        "type": "session_blocked",
+                        "payload": "terminated",
+                        "reason": "This interview was terminated due to a privacy violation. This link can no longer be used."
+                    })
+                    await websocket.close()
+                    return
+                
+                # Check if disconnected too long (> 60s) → reset session to fresh start
+                disconnected_at = sdata.get("disconnectedAt")
+                if (
+                    stored_status not in ("IDLE", "COMPLETED")
+                    and disconnected_at
+                    and sdata.get("endReason") == "disconnected_resumable"
+                ):
+                    try:
+                        disc_time = datetime.fromisoformat(disconnected_at)
+                        elapsed = (datetime.utcnow() - disc_time).total_seconds()
+                        if elapsed > 60:
+                            print(f"Session {session_id}: Candidate away for {elapsed:.0f}s (>60s). RESETTING session.")
+                            db.collection("sessions").document(session_id).update({
+                                "status": "IDLE",
+                                "metadata": {},
+                                "endReason": "reset_timeout",
+                                "disconnectedAt": None,
+                                "lastUpdated": datetime.utcnow().isoformat(),
+                            })
+                        else:
+                            print(f"Session {session_id}: Candidate returned after {elapsed:.0f}s (<60s). RESUMING.")
+                    except Exception as e:
+                        print(f"Session {session_id}: Error parsing disconnectedAt: {e}")
+
         # ── Load / create session ──────────────────────────────────────
         session_info = None
         if db:
@@ -389,6 +445,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         # ── GREETING or RESUME ─────────────────────────────────────────
         if was_hydrated:
             # Reconnection: resume from stored state
+            print(f"Session {session_id}: RESUMING from {agent.current_state.value}")
             await websocket.send_json(
                 {
                     "type": "state_update",
@@ -397,10 +454,16 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     "metadata": agent.metadata,
                 }
             )
+            # Send saved code back to the editor
+            if agent._candidate_code:
+                await websocket.send_json({
+                    "type": "restore_code",
+                    "payload": agent._candidate_code,
+                })
             await gemini.send_text(
                 f"[SYSTEM] {agent.get_system_instruction()}\n"
-                f"[SYSTEM] The candidate has reconnected. Resume the interview from the {agent.current_state.value} phase. "
-                "Briefly acknowledge the reconnection and continue naturally."
+                f"[SYSTEM] The candidate has reconnected after a network drop. Resume the interview from the {agent.current_state.value} phase. "
+                "Briefly acknowledge the reconnection (e.g., 'Welcome back! Let's continue where we left off.') and continue naturally."
             )
         else:
             greeting_msg = await agent.update_state(AgentState.GREETING)
@@ -443,17 +506,20 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
         # ── 2) FORWARDER: browser → Gemini ─────────────────────────────
         analysis_task: Optional[asyncio.Task] = None
+        last_frame_time = time.time()
 
         async def analyze_frame_bg(frame_data: str):
             """Background vision analysis for cheat detection during CODING."""
             try:
-                cheat_detector.analysis_interval = 10
-                v = await cheat_detector.process_frame(frame_data)
+                # Add a timeout to prevent hanging analysis tasks
+                v = await asyncio.wait_for(cheat_detector.process_frame(frame_data), timeout=10.0)
                 if not v:
                     return
 
                 severity = v.get("severity", "FLAG")
                 reason = v.get("reason", "Suspicious activity")
+                
+                print(f"[Vision] Handling {severity}: {reason}")
 
                 if severity == "HARD":
                     scripted = await agent.handle_event("cheat_detected", v)
@@ -464,6 +530,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             "payload": agent.current_state.value,
                             "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
                             "metadata": agent.metadata,
+                            "violation": v # Send box/prob details
                         }
                     )
                     await gemini.send_text_urgent(
@@ -472,6 +539,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     if scripted:
                         await gemini.send_text_urgent(scripted)
                 elif severity == "TERMINATE":
+                    print(f"[Vision] !!! TERMINATING interview due to persistent cheating violations !!!")
                     scripted = await agent.handle_event("end_interview", {"reason": "vision_cheat_limit"})
                     agent.metadata["cheat_reason"] = reason
                     await websocket.send_json(
@@ -480,6 +548,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             "payload": agent.current_state.value,
                             "screenRequired": False,
                             "metadata": agent.metadata,
+                            "violation": v
                         }
                     )
                     if scripted:
@@ -488,7 +557,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 print(f"Background analysis task failed: {e}")
 
         async def forward_client_to_gemini():
-            nonlocal analysis_task
+            nonlocal analysis_task, last_frame_time
             try:
                 while True:
                     raw = await websocket.receive_text()
@@ -585,12 +654,19 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             )
 
                     elif msg_type == "frame":
-                        # Perform vision analysis during critical phases
+                        msg_data = data["payload"]
+                        latency = time.time() - last_frame_time
+                        print(f"[Vision] Frame received. State: {agent.current_state}. Latency: {latency:.2f}s")
+                        # Only analyze screen in certain states to save cost
                         if agent.current_state in SCREEN_REQUIRED_STATES:
                             if analysis_task is None or analysis_task.done():
-                                analysis_task = asyncio.create_task(
-                                    analyze_frame_bg(data["payload"])
-                                )
+                                print(f"[Vision] Starting background analysis task.")
+                                analysis_task = asyncio.create_task(analyze_frame_bg(msg_data))
+                            else:
+                                print(f"[Vision] Analysis task already running, skipping frame.")
+                        else:
+                            print(f"[Vision] Not in screen-required state, skipping analysis.")
+                        last_frame_time = time.time()
 
             except WebSocketDisconnect:
                 print(f"Client disconnected: {session_id}")
@@ -641,16 +717,38 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         except Exception:
             pass
     finally:
-        # Mark session ended in Firestore if it wasn't already completed
-        if db and agent and agent.current_state != AgentState.COMPLETED:
+        # Persist session state for resumption or mark as completed
+        if db and agent:
             try:
-                db.collection("sessions").document(session_id).update({
-                    "status": "COMPLETED",
-                    "endedAt": datetime.utcnow().isoformat(),
-                    "endReason": "disconnected",
-                })
-            except Exception:
-                pass
+                if agent.current_state == AgentState.COMPLETED:
+                    # Interview finished or terminated — mark as final
+                    update_data = {
+                        "status": "COMPLETED",
+                        "endedAt": datetime.utcnow().isoformat(),
+                        "endReason": "completed",
+                    }
+                    # Persist metadata so the blocking check can find terminated_for_cheating
+                    if agent.metadata.get("terminated_for_cheating") or agent.metadata.get("terminated_screen_loss"):
+                        persist_meta = {**agent.metadata, "hint_index": agent.hint_index}
+                        update_data["metadata"] = persist_meta
+                    db.collection("sessions").document(session_id).update(update_data)
+                    print(f"Session {session_id}: ended (COMPLETED, cheating={agent.metadata.get('terminated_for_cheating', False)})")
+                else:
+                    # Network drop — save state + disconnectedAt for the 60s resumption window
+                    persist_meta = {**agent.metadata, "hint_index": agent.hint_index}
+                    if agent.previous_state:
+                        persist_meta["previous_state"] = agent.previous_state.value
+                    persist_meta["candidate_code"] = agent._candidate_code
+                    db.collection("sessions").document(session_id).update({
+                        "status": agent.current_state.value,
+                        "lastUpdated": datetime.utcnow().isoformat(),
+                        "disconnectedAt": datetime.utcnow().isoformat(),
+                        "metadata": persist_meta,
+                        "endReason": "disconnected_resumable",
+                    })
+                    print(f"Session {session_id}: saved for resumption (state={agent.current_state.value}, 60s window started)")
+            except Exception as e:
+                print(f"Session persist error: {e}")
         if gemini:
             await gemini.close()
         try:

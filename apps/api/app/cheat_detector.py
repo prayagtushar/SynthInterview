@@ -15,8 +15,9 @@ class CheatDetector:
         self.model_id = model_id
         self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         self.consecutive_flags = 0
+        self.total_strikes = 0  # Total persistent violations
         self.last_analysis_time = 0
-        self.analysis_interval = 10  # Analyze every 10 seconds to save costs
+        self.analysis_interval = 4  # Aggressive analysis for live proctoring
         self.violation_log: List[Dict] = []
         
     async def process_frame(self, frame_b64: str) -> Optional[Dict]:
@@ -26,14 +27,19 @@ class CheatDetector:
             return None
             
         self.last_analysis_time = now
+        print(f"[Vision] Analyzing frame... (Consecutive Flags: {self.consecutive_flags})")
         
         try:
             violation = await self._analyze_with_gemini(frame_b64)
             if violation:
                 self.consecutive_flags += 1
+                self.total_strikes += 1
+                print(f"[Vision] VIOLATION: Consecutive={self.consecutive_flags}, Total={self.total_strikes}")
                 return await self._handle_violation(violation, frame_b64)
             else:
-                self.consecutive_flags = 0
+                if self.consecutive_flags > 0:
+                    self.consecutive_flags -= 1
+                    print(f"[Vision] No violation. Counter decayed to: {self.consecutive_flags}")
                 return None
         except Exception as e:
             print(f"CheatDetector error: {e}")
@@ -43,21 +49,23 @@ class CheatDetector:
         """Uses Gemini Vision to detect violations."""
         prompt = """
         Analyze this screen frame from a technical coding interview.
-        YOUR GOAL: Detect ACTIVE cheating.
+        YOUR GOAL: Detect ACTIVE cheating (split screens, external AI tools, or other IDEs).
         
-        RULES:
-        1. The candidate MUST be using the SynthInterview web platform.
-        2. IGNORE the taskbar, dock, or system tray.
-        3. STRICT VIOLATIONS include:
-           (a) Any split-screen or side-by-side windows. The screen must ONLY show the single interview browser window.
-           (b) ANY external IDE, text editor, or terminal (e.g., VS Code, Cursor, IntelliJ, Antigravity, local terminal). The ONLY allowed editor is the web-based Monaco editor inside the SynthInterview page.
-           (c) Any visible AI tool, chatbot, or search engine (e.g., ChatGPT, Claude, Grok, Google).
-           (d) Any messaging apps.
+        STRICT VIOLATIONS include:
+        1. Any split-screen or side-by-side windows. The screen must ONLY show the single interview browser window occupies most of the screen.
+        2. External IDEs/Terminals (VS Code, Cursor, Antigravity, local terminals).
+        3. Visible AI tools or search engines (ChatGPT, Claude, Grok, Google).
         
-        Note: If you see an AI chat interface (like Grok) or a code editor (like VS Code) side-by-side with the interview, it is a DEFINITE VIOLATION.
-           
+        CRITICAL: If you see ANY window other than the SynthInterview web platform taking up visual space (split screen), it is a DEFINITE VIOLATION. Be extremely strict.
+        
         Return ONLY a JSON object:
-        { "is_violation": boolean, "type": string, "reason": string }
+        { 
+          "is_violation": boolean, 
+          "probability": float (0-1),
+          "type": string, 
+          "reason": string,
+          "box_2d": [ymin, xmin, ymax, xmax] (Normalized 0-1000, ONLY if a violation is detected)
+        }
         """
         
         try:
@@ -99,10 +107,14 @@ class CheatDetector:
 
     async def _handle_violation(self, violation: Dict, frame_b64: str) -> Dict:
         """Applies threshold logic and logs to Firestore/Storage."""
-        if self.consecutive_flags >= 2:
+        # Strike System:
+        # 3 total strikes OR 2 consecutive flags = TERMINATE
+        if self.consecutive_flags >= 2 or self.total_strikes >= 3:
             violation_type = "TERMINATE"
         else:
             violation_type = "HARD"
+            
+        print(f"[Vision] Violation Handled: {violation_type} (Flags: {self.consecutive_flags}, Total: {self.total_strikes})")
         
         if violation_type in ["HARD", "TERMINATE"]:
             timestamp = datetime.utcnow().isoformat()
@@ -132,10 +144,17 @@ class CheatDetector:
                 "severity": violation_type,
                 "reason": violation["reason"],
                 "type": violation["type"],
+                "box_2d": violation.get("box_2d"),
+                "probability": violation.get("probability", 1.0),
                 "screenshotRef": screenshot_ref
             }
             
-        return {"severity": "FLAG", "reason": violation["reason"]}
+        return {
+            "severity": "FLAG",
+            "reason": violation["reason"],
+            "box_2d": violation.get("box_2d"),
+            "probability": violation.get("probability", 0.0)
+        }
 
     async def _upload_screenshot(self, frame_b64: str, timestamp: str) -> Optional[str]:
         """Uploads screenshot to Cloud Storage."""

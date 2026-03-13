@@ -129,7 +129,7 @@ def _strip_ts_types(code: str) -> str:
 
 # ── Harness builders ────────────────────────────────────────────────────────
 
-def _build_harness(code: str, language: str, tests: list, sort_compare: bool) -> Optional[str]:
+def _build_harness(code: str, language: str, tests: list, sort_compare) -> Optional[str]:
     tests_json = json.dumps(tests)
     if language == "python":
         return _python_harness(code, tests_json, sort_compare)
@@ -144,12 +144,13 @@ def _build_harness(code: str, language: str, tests: list, sort_compare: bool) ->
     return None
 
 
-def _python_harness(code: str, tests_json: str, sort_compare: bool) -> str:
-    compare = (
-        "sorted(list(result)) == sorted(list(expected)) if hasattr(result,'__iter__') and not isinstance(result,str) else result == expected"
-        if sort_compare else
-        "result == expected"
-    )
+def _python_harness(code: str, tests_json: str, sort_compare) -> str:
+    if sort_compare == "deep":
+        compare = "sorted([sorted(x) for x in _result]) == sorted([sorted(x) for x in _expected]) if hasattr(_result,'__iter__') else False"
+    elif sort_compare:
+        compare = "sorted(list(_result)) == sorted(list(_expected)) if hasattr(_result,'__iter__') and not isinstance(_result,str) else _result == _expected"
+    else:
+        compare = "_result == _expected"
     return f"""{code}
 
 # ─── Auto-grader ─────────────────────────────────────────────────────────────
@@ -173,8 +174,16 @@ print(f"SUMMARY:{{_passed}}/{{len(_tests)}}")
 """
 
 
-def _js_harness(code: str, tests_json: str, sort_compare: bool) -> str:
-    if sort_compare:
+def _js_harness(code: str, tests_json: str, sort_compare) -> str:
+    if sort_compare == "deep":
+        compare_fn = """
+function _deepEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  const sa = JSON.stringify([...a].map(x => [...x].sort()).sort());
+  const sb = JSON.stringify([...b].map(x => [...x].sort()).sort());
+  return sa === sb;
+}"""
+    elif sort_compare:
         compare_fn = """
 function _deepEqual(a, b) {
   const sa = JSON.stringify(Array.isArray(a) ? [...a].sort() : a);

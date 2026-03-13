@@ -57,13 +57,15 @@ class InterviewAgent:
             stored_meta = data.get("metadata", {})
             self.metadata.update(stored_meta)
             self.hint_index = stored_meta.get("hint_index", 0)
+            self._candidate_code = stored_meta.get("candidate_code", "")
+            self._problem_delivered_once = stored_status not in ("IDLE", "GREETING")
             prev = stored_meta.get("previous_state")
             if prev:
                 try:
                     self.previous_state = AgentState(prev)
                 except ValueError:
                     pass
-            print(f"Agent hydrated for {self.session_id}: state={self.current_state.value}, hints={self.hint_index}")
+            print(f"Agent hydrated for {self.session_id}: state={self.current_state.value}, hints={self.hint_index}, code_len={len(self._candidate_code)}")
             return True
         except Exception as e:
             print(f"Agent hydration error: {e}")
