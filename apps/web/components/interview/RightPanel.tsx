@@ -35,7 +35,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 	currentState,
 }) => {
 	return (
-		<div className='w-[340px] flex flex-col bg-[#070709] shrink-0'>
+		<div className='w-[340px] flex flex-col bg-slate-950 shrink-0 border-l border-indigo-500/10'>
 			<AIAvatar
 				isSpeaking={isSpeaking}
 				isUserSpeaking={isUserSpeaking}
@@ -43,22 +43,22 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 			/>
 
 			{/* Tab Bar */}
-			<div className='flex border-b border-white/5 shrink-0'>
+			<div className='flex border-b border-indigo-500/20 shrink-0 bg-slate-900/50'>
 				<button
 					onClick={() => setActiveTab('feedback')}
-					className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${
+					className={`flex-1 py-3 text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${
 						activeTab === 'feedback'
-							? 'text-white border-b border-white'
-							: 'text-gray-600 hover:text-gray-400'
+							? 'text-indigo-400 bg-indigo-500/5 shadow-[inset_0_-2px_0_0_#6366f1]'
+							: 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
 					}`}>
 					AI Feedback
 				</button>
 				<button
 					onClick={() => setActiveTab('scorecard')}
-					className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${
+					className={`flex-1 py-3 text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${
 						activeTab === 'scorecard'
-							? 'text-white border-b border-white'
-							: 'text-gray-600 hover:text-gray-400'
+							? 'text-indigo-400 bg-indigo-500/5 shadow-[inset_0_-2px_0_0_#6366f1]'
+							: 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
 					}`}>
 					Scorecard
 				</button>

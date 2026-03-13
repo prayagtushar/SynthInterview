@@ -181,7 +181,7 @@ class InterviewAgent:
 
         elif state == AgentState.COMPLETED:
             if self.metadata.get("terminated_for_cheating"):
-                return "[SYSTEM] Say exactly: 'You've exceeded the allowed tab switches — terminating this session. Goodbye!' Then stop."
+                return "[SYSTEM] Say exactly: 'You've exceeded the allowed number of cheating violations — terminating this session. Goodbye!' Then stop."
             return "[SYSTEM] Thank them warmly and end the interview."
 
         elif state == AgentState.FLAGGED:
@@ -383,7 +383,7 @@ class InterviewAgent:
 
         elif event_type == "end_interview":
             reason = data.get("reason", "normal") if isinstance(data, dict) else "normal"
-            if reason in ("tab_switch_limit", "tab_away_timeout"):
+            if reason in ("tab_switch_limit", "tab_away_timeout", "vision_cheat_limit"):
                 self.metadata["terminated_for_cheating"] = True
             msg = await self.update_state(AgentState.COMPLETED)
 

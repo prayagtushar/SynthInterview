@@ -59,7 +59,15 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_ID = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025")
 
 # Phases that require screen frame visibility
-SCREEN_REQUIRED_STATES = {AgentState.CODING}
+SCREEN_REQUIRED_STATES = {
+    AgentState.PROBLEM_DELIVERY,
+    AgentState.THINK_TIME,
+    AgentState.APPROACH_LISTEN,
+    AgentState.CODING,
+    AgentState.HINT_DELIVERY,
+    AgentState.TESTING,
+    AgentState.OPTIMIZATION,
+}
 
 # ── Tools ─────────────────────────────────────────────────────────────────
 
@@ -371,7 +379,8 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             print(f"Storage bucket error: {e}")
 
         cheat_detector = CheatDetector(
-            session_id=session_id, db=db, bucket=bucket, api_key=GEMINI_API_KEY
+            session_id=session_id, db=db, bucket=bucket, api_key=GEMINI_API_KEY,
+            model_id="gemini-2.5-flash"
         )
 
         # Run Gemini connect in parallel with CheatDetector init
@@ -458,15 +467,23 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                         }
                     )
                     await gemini.send_text_urgent(
-                        f"[SYSTEM] [CRITICAL VIOLATION] {reason}. Warn formally."
+                        f"[SYSTEM] [CRITICAL VIOLATION] {reason}. Warn formally: This is the first and ONLY warning. Next violation will terminate the interview."
                     )
                     if scripted:
                         await gemini.send_text_urgent(scripted)
-                elif severity == "SOFT":
-                    # Don't interrupt conversation — just update Gemini's awareness
-                    await gemini.send_context(
-                        f"[SYSTEM] [NOTICE] Vision detected: {reason}. Warn if it continues."
+                elif severity == "TERMINATE":
+                    scripted = await agent.handle_event("end_interview", {"reason": "vision_cheat_limit"})
+                    agent.metadata["cheat_reason"] = reason
+                    await websocket.send_json(
+                        {
+                            "type": "state_update",
+                            "payload": agent.current_state.value,
+                            "screenRequired": False,
+                            "metadata": agent.metadata,
+                        }
                     )
+                    if scripted:
+                        await gemini.send_text_urgent(scripted)
             except Exception as e:
                 print(f"Background analysis task failed: {e}")
 
@@ -568,8 +585,8 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             )
 
                     elif msg_type == "frame":
-                        # Perform vision analysis during CODING only
-                        if agent.current_state == AgentState.CODING:
+                        # Perform vision analysis during critical phases
+                        if agent.current_state in SCREEN_REQUIRED_STATES:
                             if analysis_task is None or analysis_task.done():
                                 analysis_task = asyncio.create_task(
                                     analyze_frame_bg(data["payload"])

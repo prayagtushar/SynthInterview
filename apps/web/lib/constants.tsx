@@ -33,7 +33,10 @@ export const DEFAULT_CODE: Record<string, string> = {
   go: "// Your solution here\npackage main\n\nfunc solve(nums []int, target int) []int {\n\t// Write your code...\n\treturn nil\n}\n",
 };
 
-export const PISTON_RUNTIMES: Record<string, { language: string; version: string }> = {
+export const PISTON_RUNTIMES: Record<
+  string,
+  { language: string; version: string }
+> = {
   javascript: { language: "javascript", version: "18.15.0" },
   typescript: { language: "typescript", version: "5.0.3" },
   python: { language: "python", version: "3.10.0" },
