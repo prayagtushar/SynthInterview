@@ -34,6 +34,7 @@ class InterviewAgent:
         self._env_check_target: Optional[AgentState] = None  # where to go after ENV_CHECK clean
         self._pending_timer_msg: Optional[str] = None
         self._candidate_code: str = ""  # Latest editor snapshot from frontend
+        self._problem_delivered_once: bool = False
 
     def hydrate_from_firestore(self) -> bool:
         """Restores agent state from Firestore for reconnection support.
@@ -117,23 +118,28 @@ class InterviewAgent:
         q = self.question
 
         if state == AgentState.GREETING:
-            return "[SYSTEM] Introduce yourself warmly and start the interview."
+            return (
+                "[SYSTEM] Greet the candidate warmly. Tell them you are SYNTH, their AI interviewer today. "
+                "Ask them to share their ENTIRE screen (not a browser tab) so the interview can begin. "
+                "Do NOT mention the code editor, opening any application, or the problem yet."
+            )
 
         elif state == AgentState.ENV_CHECK:
             return None  # UI overlay informs the candidate; agent stays silent unless a violation is detected
 
         elif state == AgentState.PROBLEM_DELIVERY:
-            title = q.get("title", "Coding Problem")
-            if self.previous_state == AgentState.ENV_CHECK:
+            if not self._problem_delivered_once:
+                self._problem_delivered_once = True
                 return (
-                    f"[SYSTEM] Environment check is complete. Announce: 'Environment verified! '"
-                    f"Then say: 'I have loaded the problem \'{title}\' into your editor. "
-                    f"Take a moment to read through it. Let me know when you understand and are ready to discuss your approach.'"
-                    f" Do NOT read the problem statement aloud — it is already displayed in the editor."
+                    "[SYSTEM] The coding problem has just been loaded into the Monaco editor on the left of the candidate's screen. "
+                    "Say something like: 'I've loaded your problem into the editor — take a moment to read through it. "
+                    "I'm all ears if you have any questions or need any clarification.' "
+                    "Then STOP and LISTEN. When the candidate says they understand the problem and are ready to move on, "
+                    "output [ADVANCE: APPROACH_LISTEN] in your text response. Do NOT speak it."
                 )
             return (
-                f"[SYSTEM] The problem '{title}' has been loaded into the candidate's code editor as comments. "
-                f"Tell them to review it in their editor. Do NOT read it aloud. Ask them to confirm when they understand."
+                "[SYSTEM] The problem is still in the editor. Ask if they have any remaining questions. "
+                "When they confirm they're ready, output [ADVANCE: APPROACH_LISTEN] in your text response."
             )
 
         elif state == AgentState.THINK_TIME:
@@ -175,8 +181,8 @@ class InterviewAgent:
 
         elif state == AgentState.COMPLETED:
             if self.metadata.get("terminated_for_cheating"):
-                return "[SYSTEM] Inform the candidate that the interview has been terminated due to repeated tab switching violations."
-            return "[SYSTEM] Thank them and end the interview."
+                return "[SYSTEM] Say exactly: 'You've exceeded the allowed tab switches — terminating this session. Goodbye!' Then stop."
+            return "[SYSTEM] Thank them warmly and end the interview."
 
         elif state == AgentState.FLAGGED:
             reason = self.metadata.get("cheat_reason", "a violation")
@@ -219,15 +225,19 @@ class InterviewAgent:
             "- To advance the interview phase, reply with the exact text command: [ADVANCE: TARGET_STATE]\n"
             "- To issue a violation warning to the candidate, reply with the exact text command: [WARN: reason]\n"
             "- Do NOT speak the [ADVANCE: ...] or [WARN: ...] tags out loud in audio. Only output them in text.\n"
+            "- NEVER tell the candidate to open a code editor, IDE, VS Code, terminal, or any external application. "
+            "  A Monaco editor is already embedded in this browser page and is always visible to them.\n"
         )
 
         state_instructions = {
             AgentState.IDLE: "You are waiting. Do not speak until the candidate connects.",
             AgentState.GREETING: (
-                "You are SYNTH, a professional interviewer. Greet the candidate warmly. "
-                "Ask them to share their ENTIRE screen (not just a tab) and have a code editor open. "
-                "Wait for them to share their screen — the system will automatically advance you to the next phase. "
-                "Do NOT attempt to verify the environment yourself. Do NOT mention the coding problem yet."
+                "You are SYNTH, a professional interviewer. Greet the candidate warmly and introduce yourself briefly. "
+                "Then ask them to share their ENTIRE screen — not a browser tab, their whole monitor. "
+                "Make clear that once they share their screen, the interview will proceed automatically. "
+                "Do NOT tell them to open any application or editor — the coding environment is already on this page. "
+                "Do NOT mention the coding problem yet. "
+                "Wait silently after your greeting — the system detects when screen sharing begins."
             ),
             AgentState.ENV_CHECK: (
                 "Stay completely silent for now. The system is verifying the candidate's environment automatically. "
@@ -235,16 +245,12 @@ class InterviewAgent:
                 "Do NOT say 'environment verified' or any similar phrase. The system handles transitions automatically."
             ),
             AgentState.PROBLEM_DELIVERY: (
-                f"The problem '{title}' is already displayed in the candidate's code editor as a comment. "
-                "Tell them: 'Your problem has been loaded into the editor - please take a moment to read through it.' "
-                "Wait for them to confirm they understand (e.g., they say 'I understand', 'I'm ready', 'got it'). "
-                "Once they confirm, output the tag [ADVANCE: THINK_TIME] in your TEXT RESPONSE ONLY — do NOT speak it."
-            ),
-            AgentState.THINK_TIME: (
-                "The candidate is thinking about their approach. Stay SILENT — do not prompt or rush them. "
-                "After 60 seconds the system will send a gentle nudge. "
-                "When the candidate begins explaining their approach or says something like 'I am ready' or 'I think I have an idea', "
-                "output the tag [ADVANCE: APPROACH_LISTEN] in your TEXT RESPONSE ONLY — do NOT speak the tag."
+                "The coding problem is displayed in the Monaco editor on the candidate's screen. "
+                "Your job right now is to LISTEN and ANSWER QUESTIONS — not to prompt or rush. "
+                "The candidate may ask you to clarify the problem, constraints, examples, or edge cases. Answer helpfully without giving away the solution. "
+                "Do NOT ask them to open anything. "
+                "When the candidate clearly signals they understand the problem and are ready to move on, "
+                "output [ADVANCE: APPROACH_LISTEN] in your text response — do NOT speak it aloud."
             ),
             AgentState.APPROACH_LISTEN: (
                 "The candidate is explaining their approach. Engage and ask clarifying questions about: "
@@ -252,8 +258,9 @@ class InterviewAgent:
                 "When you are satisfied with their approach, output [ADVANCE: CODING] in TEXT ONLY — do NOT speak it."
             ),
             AgentState.CODING: (
-                f"Observe the candidate coding {title}. Stay mostly silent unless they ask for help. "
-                "If they ask for a hint, tell them you'll provide one shortly. "
+                f"The candidate is now coding their solution in the Monaco editor on the left of their screen. "
+                f"Observe them silently — do NOT tell them to open an editor or start coding anywhere else. "
+                "Stay mostly silent unless they ask for help or a hint. "
                 "The cheat detection system handles cheating — do NOT try to detect it yourself. "
                 "When the candidate says they are done coding or says 'done' / 'finished', "
                 "output [ADVANCE: TESTING] in TEXT ONLY — do NOT speak the tag."
@@ -292,18 +299,11 @@ class InterviewAgent:
             msg = await self.update_state(AgentState.GREETING)
 
         elif self.current_state == AgentState.GREETING and event_type == "screen_share_active":
-            self._env_check_target = AgentState.PROBLEM_DELIVERY
-            msg = await self.update_state(AgentState.ENV_CHECK)
-
-        elif self.current_state == AgentState.ENV_CHECK and event_type == "workspace_clean":
-            target = self._env_check_target or AgentState.PROBLEM_DELIVERY
-            self._env_check_target = None  # reset
-            msg = await self.update_state(target)
+            # Go directly to problem delivery — no env check needed
+            msg = await self.update_state(AgentState.PROBLEM_DELIVERY)
 
         elif self.current_state == AgentState.PROBLEM_DELIVERY and event_type == "candidate_ready":
-            msg = await self.update_state(AgentState.THINK_TIME)
-
-        elif self.current_state == AgentState.THINK_TIME and event_type == "timer_expired":
+            # "I Understand" clicked — go straight to approach discussion
             msg = await self.update_state(AgentState.APPROACH_LISTEN)
 
         elif self.current_state == AgentState.APPROACH_LISTEN and event_type == "approach_accepted":
@@ -337,13 +337,12 @@ class InterviewAgent:
             msg = await self.update_state(return_to)
 
         elif event_type == "screen_share_ended":
-            # Remember where to return after ENV_CHECK re-verification
-            self._env_check_target = self.current_state
             msg = await self.update_state(AgentState.SCREEN_NOT_VISIBLE)
 
         elif event_type == "screen_share_active" and self.current_state == AgentState.SCREEN_NOT_VISIBLE:
-            # Screen restored — run ENV_CHECK before resuming; target was set by screen_share_ended
-            msg = await self.update_state(AgentState.ENV_CHECK)
+            # Screen restored — resume directly from where we were (no re-verification)
+            return_to = self.previous_state or AgentState.CODING
+            msg = await self.update_state(return_to)
 
         elif event_type == "tab_switch":
             count = data.get("count", 1) if isinstance(data, dict) else 1
@@ -383,6 +382,15 @@ class InterviewAgent:
             )
 
         elif event_type == "end_interview":
+            reason = data.get("reason", "normal") if isinstance(data, dict) else "normal"
+            if reason in ("tab_switch_limit", "tab_away_timeout"):
+                self.metadata["terminated_for_cheating"] = True
+            msg = await self.update_state(AgentState.COMPLETED)
+
+        elif event_type == "terminate_session":
+            reason = data.get("reason", "unknown") if isinstance(data, dict) else "unknown"
+            self.metadata["terminated_screen_loss"] = True
+            self.metadata["termination_reason"] = reason
             msg = await self.update_state(AgentState.COMPLETED)
 
         return msg

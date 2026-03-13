@@ -31,7 +31,7 @@ class GeminiLiveClient:
                     disabled=False,
                     startOfSpeechSensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
                     endOfSpeechSensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
-                    silenceDurationMs=500,
+                    silenceDurationMs=300,
                 )
             ),
         )
@@ -70,10 +70,17 @@ class GeminiLiveClient:
                 try:
                     await asyncio.wait_for(self._turn_complete.wait(), timeout=15)
                     self._turn_complete.clear()
+                    # "context" items use turn_complete=False — Gemini absorbs the info
+                    # silently without generating a response, so the candidate's voice
+                    # remains the next thing Gemini responds to.
+                    is_context = kind == "context"
                     await self.session.send_client_content(
                         turns={"role": "user", "parts": [{"text": payload}]},
-                        turn_complete=True,
+                        turn_complete=not is_context,
                     )
+                    if is_context:
+                        # No Gemini turn will follow, so re-set the event immediately.
+                        self._turn_complete.set()
                 except asyncio.TimeoutError:
                     print("Gemini: timed out waiting for turn_complete, sending anyway")
                     self._turn_complete.clear()
@@ -87,8 +94,14 @@ class GeminiLiveClient:
             pass
 
     async def send_text(self, text: str) -> None:
-        """Queue a text turn to be sent when the model's current turn finishes."""
+        """Queue a prompted text turn — Gemini will respond aloud."""
         await self._text_queue.put(("text", text))
+
+    async def send_context(self, text: str) -> None:
+        """Queue a silent context update — Gemini reads it but is NOT forced to respond.
+        Use this for code snapshots, background notices, and anything the model should
+        know about without interrupting the candidate's conversation turn."""
+        await self._text_queue.put(("context", text))
 
     async def send_text_urgent(self, text: str) -> None:
         """Send immediately, interrupting the model's current turn."""
