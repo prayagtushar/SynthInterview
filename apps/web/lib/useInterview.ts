@@ -201,7 +201,7 @@ export function useInterview(sessionId: string = "default-session") {
 
     ws.onopen = () => {
       setIsConnected(true);
-      reconnectAttemptRef.current = 0; // Reset on successful connect
+      reconnectAttemptRef.current = 0; // Reset counter
       sendEvent("candidate_connect");
       startMonitoring();
     };
@@ -253,11 +253,6 @@ export function useInterview(sessionId: string = "default-session") {
       } else if (data.type === "scorecard") {
         setScorecardData(data.payload);
       } else if (data.type === "restore_code") {
-        console.log(
-          "[WS] Restoring code from server:",
-          data.payload?.length,
-          "chars",
-        );
         setRestoredCode(data.payload);
       } else if (data.type === "turn_complete") {
         setIsSpeaking(false);
@@ -281,7 +276,7 @@ export function useInterview(sessionId: string = "default-session") {
     ws.onclose = (ev) => {
       setIsConnected(false);
       stopMonitoring();
-      // Auto-reconnect on unexpected disconnect (not terminated/blocked)
+      // Auto-reconnect on disconnect
       if (
         !sessionBlockedRef.current &&
         !isTerminatedRef.current &&
@@ -337,7 +332,6 @@ export function useInterview(sessionId: string = "default-session") {
     const { audio, screen } = streams;
     await setupAudioProcessing(audio);
     setupScreenProcessing(screen);
-    console.log("[Media] Event: screen_share_active");
     sendEvent("screen_share_active");
   }, [
     acquireMediaStreams,

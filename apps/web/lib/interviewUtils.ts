@@ -7,7 +7,7 @@ export function generateProblemComments(
   const isHash = langId === "python";
   const lines: string[] = [];
 
-  // Top border
+  // Header
   if (!isHash) {
     lines.push("/*");
     lines.push(
@@ -17,7 +17,7 @@ export function generateProblemComments(
     lines.push("# ═══════════════════════════════════════════════════════════");
   }
 
-  // Description lines
+  // Description
   const descLines = q.description.split("\n");
   if (!isHash) {
     lines.push(" *");
@@ -56,7 +56,7 @@ export function generateProblemComments(
     }
   }
 
-  // Close comment block
+  // Footer
   if (!isHash) {
     lines.push(
       ` * ═══════════════════════════════════════════════════════════`,

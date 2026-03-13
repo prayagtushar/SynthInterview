@@ -1,7 +1,4 @@
-"""
-Scorecard generation for SynthInterview.
-Uses Gemini to analyze the interview and produce structured scores across 6 dimensions.
-"""
+# Scorecard generation using Gemini analysis.
 
 import json
 import logging
@@ -33,10 +30,7 @@ async def generate_scorecard(
     tab_switch_count: int,
     conversation_summary: str,
 ) -> dict:
-    """
-    Generate a full scorecard using Gemini.
-    Returns a dict with scores, rating, feedback, and dimension_feedback.
-    """
+    """Generates scorecard using Gemini."""
     hint_deduction = _HINT_DEDUCTIONS.get(min(hint_index, 3), 30)
     test_passed = test_results.get("passed", 0) if test_results else 0
     test_total = test_results.get("total", 0) if test_results else 0
@@ -165,9 +159,9 @@ async def _call_gemini(prompt: str) -> Optional[str]:
 # ── Parser ────────────────────────────────────────────────────────────────────
 
 def _parse_scorecard(raw: str, hint_deduction: int) -> dict:
-    """Extract JSON from Gemini response and compute weighted overall score."""
+    """Extracts JSON and computes overall score."""
     try:
-        # Strip markdown code fences if present
+        # Handle markdown fences
         text = raw.strip()
         if text.startswith("```"):
             lines = text.splitlines()
@@ -176,7 +170,7 @@ def _parse_scorecard(raw: str, hint_deduction: int) -> dict:
         data = json.loads(text)
         scores = data.get("scores", {})
 
-        # Compute weighted overall score
+        # Weighted overall score
         overall = 0.0
         for dim, weight in _SCORE_WEIGHTS.items():
             overall += scores.get(dim, 0) * weight
