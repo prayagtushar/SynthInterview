@@ -1,7 +1,7 @@
-"""
-Question bank for the AI coding interview platform.
-Covers 3 difficulties and 5 topic categories.
-"""
+# Question bank for SynthInterview.
+# 3 difficulties, 5 topic categories.
+# structured_tests: machine-runnable test cases.
+# sort_compare: True if output order doesn't matter.
 
 QUESTIONS = {
     "two-sum": {
@@ -36,6 +36,14 @@ Output: [1, 2]
             {"input": "[3,2,4], target=6", "output": "[1,2]"},
             {"input": "[3,3], target=6", "output": "[0,1]"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [[2, 7, 11, 15], 9],  "expected": [0, 1]},
+            {"label": "TC2", "args": [[3, 2, 4],       6],  "expected": [1, 2]},
+            {"label": "TC3", "args": [[3, 3],           6],  "expected": [0, 1]},
+            {"label": "TC4 (hidden)", "args": [[1, 5, 3, 2], 4], "expected": [2, 3]},
+            {"label": "TC5 (hidden)", "args": [[-1, -2, -3, -4, -5], -8], "expected": [2, 4]},
+        ],
+        "sort_compare": True,
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(n)"
     },
@@ -72,6 +80,15 @@ Output: false""",
             {"input": "\"()[]{}\"", "output": "true"},
             {"input": "\"(]\"", "output": "false"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": ["()"],       "expected": True},
+            {"label": "TC2", "args": ["()[]{}"],   "expected": True},
+            {"label": "TC3", "args": ["(]"],        "expected": False},
+            {"label": "TC4 (hidden)", "args": ["{[]}"],     "expected": True},
+            {"label": "TC5 (hidden)", "args": ["([)]"],     "expected": False},
+            {"label": "TC6 (hidden)", "args": [""],         "expected": True},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(n)"
     },
@@ -102,6 +119,12 @@ Output: []""",
             {"input": "[1,2,3,4,5]", "output": "[5,4,3,2,1]"},
             {"input": "[1,2]", "output": "[2,1]"},
             {"input": "[]", "output": "[]"}
+        ],
+        "structured_tests": [
+            {"label": "TC1", "args": [[1,2,3,4,5]], "expected": [5,4,3,2,1]},
+            {"label": "TC2", "args": [[1,2]], "expected": [2,1]},
+            {"label": "TC3", "args": [[]], "expected": []},
+            {"label": "TC4 (hidden)", "args": [[9,8,7]], "expected": [7,8,9]},
         ],
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(1)"
@@ -135,6 +158,14 @@ Explanation: No profit is possible.""",
             {"input": "[7,1,5,3,6,4]", "output": "5"},
             {"input": "[7,6,4,3,1]", "output": "0"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [[7, 1, 5, 3, 6, 4]], "expected": 5},
+            {"label": "TC2", "args": [[7, 6, 4, 3, 1]],    "expected": 0},
+            {"label": "TC3 (hidden)", "args": [[1, 2]],             "expected": 1},
+            {"label": "TC4 (hidden)", "args": [[2, 4, 1]],          "expected": 2},
+            {"label": "TC5 (hidden)", "args": [[3, 3]],             "expected": 0},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(1)"
     },
@@ -167,6 +198,13 @@ Output: [[""]]
         "testCases": [
             {"input": "[\"eat\",\"tea\",\"tan\",\"ate\",\"nat\",\"bat\"]", "output": "[[\"bat\"],[\"nat\",\"tan\"],[\"ate\",\"eat\",\"tea\"]]"},
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [["eat","tea","tan","ate","nat","bat"]], "expected": [["bat"],["nat","tan"],["ate","eat","tea"]]},
+            {"label": "TC2", "args": [[""]], "expected": [[""]]},
+            {"label": "TC3", "args": [["a"]], "expected": [["a"]]},
+            {"label": "TC4 (hidden)", "args": [["cab","tin","pew","duh","may","ill","buy","bar","max","doc"]], "expected": [["doc"],["bar"],["buy"],["ill"],["may"],["tin"],["cab"],["pew"],["max"],["duh"]]}
+        ],
+        "sort_compare": "deep",
         "optimalTimeComplexity": "O(n * k log k) where k is max string length",
         "optimalSpaceComplexity": "O(n * k)"
     },
@@ -199,6 +237,15 @@ Output: 3""",
             {"input": "\"bbbbb\"", "output": "1"},
             {"input": "\"pwwkew\"", "output": "3"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": ["abcabcbb"], "expected": 3},
+            {"label": "TC2", "args": ["bbbbb"],    "expected": 1},
+            {"label": "TC3", "args": ["pwwkew"],   "expected": 3},
+            {"label": "TC4 (hidden)", "args": [""],        "expected": 0},
+            {"label": "TC5 (hidden)", "args": ["au"],      "expected": 2},
+            {"label": "TC6 (hidden)", "args": ["dvdf"],    "expected": 3},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(min(n, m)) where m is charset size"
     },
@@ -227,6 +274,14 @@ Output: -1""",
             {"input": "[-1,0,3,5,9,12], target=9", "output": "4"},
             {"input": "[-1,0,3,5,9,12], target=2", "output": "-1"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [[-1, 0, 3, 5, 9, 12], 9],  "expected": 4},
+            {"label": "TC2", "args": [[-1, 0, 3, 5, 9, 12], 2],  "expected": -1},
+            {"label": "TC3 (hidden)", "args": [[5], 5],                   "expected": 0},
+            {"label": "TC4 (hidden)", "args": [[1, 2, 3, 4, 5], 3],       "expected": 2},
+            {"label": "TC5 (hidden)", "args": [[1, 2, 3, 4, 5], 6],       "expected": -1},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(log n)",
         "optimalSpaceComplexity": "O(1)"
     },
@@ -258,6 +313,14 @@ Output: -1""",
             {"input": "coins=[2], amount=3", "output": "-1"},
             {"input": "coins=[1,2,5], amount=11", "output": "3"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [[1, 5, 11], 11],  "expected": 1},
+            {"label": "TC2", "args": [[2], 3],          "expected": -1},
+            {"label": "TC3", "args": [[1, 2, 5], 11],   "expected": 3},
+            {"label": "TC4 (hidden)", "args": [[1], 0],         "expected": 0},
+            {"label": "TC5 (hidden)", "args": [[2, 5, 10, 1], 27], "expected": 4},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(amount * coins)",
         "optimalSpaceComplexity": "O(amount)"
     },
@@ -296,6 +359,29 @@ Output: 3""",
             {"input": "grid with 1 connected component", "output": "1"},
             {"input": "grid with 3 disconnected components", "output": "3"}
         ],
+        "structured_tests": [
+            {
+                "label": "TC1",
+                "args": [[["1","1","1","1","0"],["1","1","0","1","0"],["1","1","0","0","0"],["0","0","0","0","0"]]],
+                "expected": 1
+            },
+            {
+                "label": "TC2",
+                "args": [[["1","1","0","0","0"],["1","1","0","0","0"],["0","0","1","0","0"],["0","0","0","1","1"]]],
+                "expected": 3
+            },
+            {
+                "label": "TC3 (hidden)",
+                "args": [[["1"]]],
+                "expected": 1
+            },
+            {
+                "label": "TC4 (hidden)",
+                "args": [[["0"]]],
+                "expected": 0
+            },
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(m * n)",
         "optimalSpaceComplexity": "O(m * n)"
     },
@@ -327,25 +413,28 @@ Explanation: There are three ways: 1+1+1, 1+2, 2+1.""",
             {"input": "n=3", "output": "3"},
             {"input": "n=5", "output": "8"}
         ],
+        "structured_tests": [
+            {"label": "TC1", "args": [2],  "expected": 2},
+            {"label": "TC2", "args": [3],  "expected": 3},
+            {"label": "TC3", "args": [5],  "expected": 8},
+            {"label": "TC4 (hidden)", "args": [1],  "expected": 1},
+            {"label": "TC5 (hidden)", "args": [10], "expected": 89},
+        ],
+        "sort_compare": False,
         "optimalTimeComplexity": "O(n)",
         "optimalSpaceComplexity": "O(1)"
     }
 }
 
 def get_question(question_id: str) -> dict:
-    """Returns question data by ID, defaults to two-sum."""
+    """Returns question by ID."""
     return QUESTIONS.get(question_id, QUESTIONS["two-sum"])
 
 def select_question_for_session(difficulty: str, topics: list) -> dict:
-    """Selects an appropriate question based on difficulty and topics."""
-    # Filter by difficulty first
+    """Selects question based on difficulty and topics."""
     candidates = [q for q in QUESTIONS.values() if q["difficulty"] == difficulty]
-    
-    # Try to match topic if specified
     if topics and candidates:
         topic_matches = [q for q in candidates if any(t in q["topics"] for t in topics)]
         if topic_matches:
             candidates = topic_matches
-    
-    # Return first match or first available
     return candidates[0] if candidates else QUESTIONS["two-sum"]

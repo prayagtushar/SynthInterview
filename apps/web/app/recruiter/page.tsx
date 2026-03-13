@@ -1,211 +1,357 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Link } from "lucide-react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Mail,
+  Zap,
+  Clock,
+  Code2,
+  Copy,
+  CheckCircle2,
+  AlertCircle,
+  Send,
+  Plus,
+  ChevronRight,
+  ExternalLink,
+  ArrowRight,
+} from "lucide-react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function RecruiterDashboard() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">(
+    "idle",
+  );
+  const [emailError, setEmailError] = useState<string | null>(null);
+
   const [config, setConfig] = useState({
     candidateEmail: "",
     difficulty: "Medium",
     topics: "React, Node.js, Algorithms",
     timeLimit: "45",
   });
+
   const [sessionData, setSessionData] = useState<any>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/sessions", {
+      const response = await fetch(`${API_BASE}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           candidateEmail: config.candidateEmail,
           difficulty: config.difficulty,
           topics: config.topics.split(",").map((t) => t.trim()),
-          timeLimit: parseInt(config.timeLimit),
+          timeLimit: parseInt(config.timeLimit) || 45,
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSessionData(data);
-      } else {
-        alert("Failed to create session");
-      }
-    } catch (error) {
-      console.error("Error creating session:", error);
-      alert("Error connecting to API");
+      if (!response.ok) throw new Error("Failed");
+
+      const data = await response.json();
+      setSessionData(data);
+      setEmailStatus("idle");
+      setEmailError(null);
+    } catch (err) {
+      console.error(err);
+      // You can add toast here later
     } finally {
       setIsLoading(false);
     }
   };
 
   const copyLink = () => {
+    if (!sessionData) return;
     const link = `${window.location.origin}/session?id=${sessionData.sessionId}`;
     navigator.clipboard.writeText(link);
-    alert("Link copied to clipboard!");
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2200);
+  };
+
+  const sendEmailInvite = async () => {
+    if (!sessionData) return;
+    setIsSendingEmail(true);
+    setEmailStatus("idle");
+    setEmailError(null);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/sessions/${sessionData.sessionId}/send-invite`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appUrl: window.location.origin }),
+        },
+      );
+
+      const data = await res.json();
+      if (data.success) {
+        setEmailStatus("sent");
+      } else {
+        throw new Error(data.message || "Failed");
+      }
+    } catch (err: any) {
+      setEmailError(err.message || "Could not send invite");
+      setEmailStatus("failed");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSessionData(null);
+    setEmailStatus("idle");
+    setEmailError(null);
+    setCopySuccess(false);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 font-sans">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <header className="text-center mb-10">
-          <h1 className="text-4xl font-black tracking-tighter mb-2">
-            SYNTH<span className="text-gray-500">INTERVIEW</span>
+    <div className="min-h-screen bg-gradient-to-b from-black to-zinc-950 text-zinc-100 flex flex-col items-center p-5 md:p-8 font-sans selection:bg-zinc-700">
+      <div className="w-full max-w-2xl space-y-14">
+        {/* Header */}
+        <header className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Zap className="w-6 h-6 text-emerald-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+              AI Technical Interviews
+            </span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
+            Synth Interview
           </h1>
-          <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">
-            Recruiter Dashboard
+          <p className="text-zinc-400 text-lg max-w-md">
+            Create live coding & AI-driven interview sessions in seconds.
           </p>
         </header>
 
-        <div className="bg-[#0a0a0a] border border-[#222] rounded-xl overflow-hidden shadow-2xl">
-          {!sessionData ? (
-            <div className="p-8">
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-white"></div>
-                New Session Configuration
-              </h2>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
-                    Candidate Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="candidate@example.com"
-                    value={config.candidateEmail}
-                    onChange={(e) =>
-                      setConfig({ ...config, candidateEmail: e.target.value })
-                    }
-                    className="w-full bg-[#111] border border-[#222] focus:border-white/30 rounded-lg px-4 py-3 text-sm transition-all outline-none"
-                    required
-                  />
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="bg-zinc-900/70 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+        >
+          <AnimatePresence mode="wait">
+            {!sessionData ? (
+              <motion.div
+                key="form"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+                className="p-8 md:p-12"
+              >
+                <div className="flex items-center justify-between mb-10">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      Create New Session
+                    </h2>
+                    <p className="text-sm text-zinc-400 mt-1">
+                      Configure parameters for the candidate
+                    </p>
+                  </div>
+                  <Plus className="w-6 h-6 text-zinc-500" />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
-                    Difficulty
-                  </label>
-                  <select
-                    value={config.difficulty}
-                    onChange={(e) =>
-                      setConfig({ ...config, difficulty: e.target.value })
-                    }
-                    className="w-full bg-[#111] border border-[#222] focus:border-white/30 rounded-lg px-4 py-3 text-sm transition-all outline-none appearance-none"
+                <form onSubmit={handleSubmit} className="space-y-9">
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-300 block">
+                      Candidate Email
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="name@company.com"
+                      value={config.candidateEmail}
+                      onChange={(e) =>
+                        setConfig({ ...config, candidateEmail: e.target.value })
+                      }
+                      className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-600/60 focus:ring-1 focus:ring-emerald-600/30 rounded-xl px-5 py-4 text-base transition-all outline-none placeholder:text-zinc-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Difficulty + Duration */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-300 block">
+                        Difficulty
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={config.difficulty}
+                          onChange={(e) =>
+                            setConfig({ ...config, difficulty: e.target.value })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-600/60 rounded-xl px-5 py-4 text-base appearance-none cursor-pointer outline-none"
+                        >
+                          <option value="Easy">Easy</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Hard">Hard</option>
+                        </select>
+                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 rotate-90 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-300 block">
+                        Time Limit (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min="15"
+                        max="120"
+                        value={config.timeLimit}
+                        onChange={(e) =>
+                          setConfig({ ...config, timeLimit: e.target.value })
+                        }
+                        className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-600/60 rounded-xl px-5 py-4 text-base outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Topics */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-300 block">
+                      Topics / Skills (comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="React, TypeScript, System Design, SQL"
+                      value={config.topics}
+                      onChange={(e) =>
+                        setConfig({ ...config, topics: e.target.value })
+                      }
+                      className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-600/60 rounded-xl px-5 py-4 text-base transition-all outline-none placeholder:text-zinc-600"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || !config.candidateEmail.trim()}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-5 rounded-xl text-base transition-all shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-3 mt-4"
                   >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        Create Interview Session{" "}
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-8 md:p-12"
+              >
+                <div className="flex items-start justify-between mb-10">
+                  <div>
+                    <h2 className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
+                      <CheckCircle2 className="w-7 h-7" /> Session Ready
+                    </h2>
+                    <p className="text-zinc-400 mt-1.5">
+                      {config.candidateEmail}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
-                    Topics
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Algorithms, System Design"
-                    value={config.topics}
-                    onChange={(e) =>
-                      setConfig({ ...config, topics: e.target.value })
-                    }
-                    className="w-full bg-[#111] border border-[#222] focus:border-white/30 rounded-lg px-4 py-3 text-sm transition-all outline-none"
-                  />
+                <div className="space-y-10">
+                  {/* Magic Link Card */}
+                  <div className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-7 space-y-5">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Shareable Link
+                    </div>
+
+                    <div className="bg-black/60 border border-zinc-800 rounded-lg p-5 font-mono text-sm text-zinc-300 break-all select-all">
+                      {window.location.host}/session?id={sessionData.sessionId}
+                    </div>
+
+                    <button
+                      onClick={copyLink}
+                      className={`w-full py-4 rounded-xl text-sm font-semibold transition-all border ${
+                        copySuccess
+                          ? "bg-emerald-600/20 border-emerald-600/40 text-emerald-400"
+                          : "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-zinc-200"
+                      }`}
+                    >
+                      {copySuccess
+                        ? "✓ Copied to Clipboard"
+                        : "Copy Invite Link"}
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="grid gap-4">
+                    <button
+                      onClick={sendEmailInvite}
+                      disabled={isSendingEmail || emailStatus === "sent"}
+                      className={`w-full py-5 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 border ${
+                        emailStatus === "sent"
+                          ? "bg-emerald-900/30 border-emerald-800 text-emerald-300"
+                          : emailStatus === "failed"
+                            ? "bg-red-950/30 border-red-800 text-red-300"
+                            : "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-white"
+                      } disabled:opacity-50`}
+                    >
+                      {isSendingEmail ? (
+                        "Sending..."
+                      ) : emailStatus === "sent" ? (
+                        "Email Sent ✓"
+                      ) : emailStatus === "failed" ? (
+                        <>
+                          <AlertCircle className="w-5 h-5" /> Retry Email
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-5 h-5" /> Send Email Invite
+                        </>
+                      )}
+                    </button>
+
+                    {emailError && (
+                      <p className="text-sm text-red-400 text-center">
+                        {emailError}
+                      </p>
+                    )}
+
+                    <Link
+                      href={`/session?id=${sessionData.sessionId}`}
+                      className="w-full bg-gradient-to-r from-zinc-100 to-white text-black hover:brightness-110 font-semibold py-5 rounded-xl text-base transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/40"
+                    >
+                      Start / Preview Session{" "}
+                      <ExternalLink className="w-5 h-5" />
+                    </Link>
+
+                    <button
+                      onClick={resetForm}
+                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors text-center pt-4"
+                    >
+                      ← Create Another Session
+                    </button>
+                  </div>
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
-                    Time Limit (min)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.timeLimit}
-                    onChange={(e) =>
-                      setConfig({ ...config, timeLimit: e.target.value })
-                    }
-                    className="w-full bg-[#111] border border-[#222] focus:border-white/30 rounded-lg px-4 py-3 text-sm transition-all outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-white text-black hover:bg-gray-200 py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                >
-                  {isLoading ? "Processing..." : "Generate Interview Link"}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="p-8 text-center animate-in fade-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Session Created!</h2>
-              <p className="text-gray-400 text-sm mb-8">
-                Copy the magic link below and send it to the candidate.
-              </p>
-
-              <div className="bg-[#111] border border-[#222] rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
-                <code className="text-[10px] text-gray-300 truncate">
-                  {window.location.origin}/session?id={sessionData.sessionId}
-                </code>
-                <button
-                  onClick={copyLink}
-                  className="bg-white text-black px-3 py-1.5 rounded text-[10px] font-bold uppercase whitespace-nowrap"
-                >
-                  Copy
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => setSessionData(null)}
-                  className="text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
-                >
-                  Create Another
-                </button>
-                <Link
-                  href={`/session?id=${sessionData.sessionId}`}
-                  className="text-xs font-bold text-white uppercase tracking-widest bg-[#222] py-3 rounded-lg hover:bg-[#333] transition-colors mt-4"
-                >
-                  Enter Session
-                </Link>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-[#050505] p-4 border-t border-[#222] text-center">
-            <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">
-              Session will be valid for 24 hours
-            </p>
-          </div>
-        </div>
-      </motion.div>
+        {/* Tiny footer */}
+        <footer className="text-center text-xs text-zinc-600 pt-8 border-t border-zinc-800">
+          Synth Interview • Powered by AI • {new Date().getFullYear()}
+        </footer>
+      </div>
     </div>
   );
 }
