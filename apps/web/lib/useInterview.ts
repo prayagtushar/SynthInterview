@@ -52,6 +52,11 @@ export function useInterview(sessionId: string = 'default-session') {
 	const vadSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 	const { playAudio, stopPlayback } = useAudioPlayback();
+	const currentStateRef = useRef(currentState);
+
+	useEffect(() => {
+		currentStateRef.current = currentState;
+	}, [currentState]);
 
 	const send = useCallback((obj: object) => {
 		if (socketRef.current?.readyState === WebSocket.OPEN) {
@@ -188,6 +193,7 @@ export function useInterview(sessionId: string = 'default-session') {
 
 		ws.onmessage = (ev) => {
 			const data = JSON.parse(ev.data);
+			console.log('[WS] Message:', data.type, data.payload || '');
 
 			if (data.type === 'text') {
 				setFeedback((prev) => [...prev, data.payload]);
@@ -214,7 +220,7 @@ export function useInterview(sessionId: string = 'default-session') {
 				setIsSpeaking(false);
 				isSpeakingRef.current = false;
 				setMediaSpeaking(false);
-				if (currentState === 'GREETING') setGreetingDone(true);
+				if (currentStateRef.current === 'GREETING') setGreetingDone(true);
 				if (screenShareLostPendingRef.current) {
 					screenShareLostPendingRef.current = false;
 					send({ type: 'event', payload: 'screen_share_ended' });
@@ -243,7 +249,6 @@ export function useInterview(sessionId: string = 'default-session') {
 		setMediaSpeaking,
 		stopPlayback,
 		playAudio,
-		currentState,
 	]);
 
 	const disconnect = useCallback(() => {
@@ -262,21 +267,24 @@ export function useInterview(sessionId: string = 'default-session') {
 	}, [currentState, stopMedia, stopMonitoring]);
 
 	const acquireAndStartMedia = useCallback(async () => {
-		const ok = await acquireMediaStreams();
-		if (!ok) return;
-
-		if (mediaStream && screenStream) {
-			await setupAudioProcessing(mediaStream);
-			setupScreenProcessing(screenStream);
-			sendEvent('screen_share_active');
+		console.log('[Media] Starting acquisition...');
+		const streams = await acquireMediaStreams();
+		if (!streams) {
+			console.error('[Media] Failed to get streams');
+			return;
 		}
+
+		console.log('[Media] Streams acquired, setting up processing');
+		const { audio, screen } = streams;
+		await setupAudioProcessing(audio);
+		setupScreenProcessing(screen);
+		console.log('[Media] Event: screen_share_active');
+		sendEvent('screen_share_active');
 	}, [
 		acquireMediaStreams,
 		setupAudioProcessing,
 		setupScreenProcessing,
 		sendEvent,
-		mediaStream,
-		screenStream,
 	]);
 
 	return {

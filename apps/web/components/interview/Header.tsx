@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
 	disconnect,
 }) => {
 	return (
-		<header className='h-12 border-b border-white/5 flex items-center justify-between px-5 bg-[#0a0a0a] shrink-0'>
+		<header className='h-12 border-b border-indigo-500/20 flex items-center justify-between px-5 bg-slate-900 shrink-0'>
 			<div className='flex items-center gap-3'>
 				<span className='text-xs font-bold tracking-widest text-gray-400 uppercase'>
 					SynthInterview

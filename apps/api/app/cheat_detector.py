@@ -8,11 +8,12 @@ import asyncio
 from google.cloud import firestore
 
 class CheatDetector:
-    def __init__(self, session_id: str, db: Any, bucket: Any, api_key: str):
+    def __init__(self, session_id: str, db: Any, bucket: Any, api_key: str, model_id: str = "gemini-2.5-flash"):
         self.session_id = session_id
         self.db = db
         self.bucket = bucket
-        self.client = genai.Client(api_key=api_key)
+        self.model_id = model_id
+        self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         self.consecutive_flags = 0
         self.last_analysis_time = 0
         self.analysis_interval = 10  # Analyze every 10 seconds to save costs
@@ -41,60 +42,74 @@ class CheatDetector:
     async def _analyze_with_gemini(self, frame_b64: str) -> Optional[Dict]:
         """Uses Gemini Vision to detect violations."""
         prompt = """
-        Analyze this screen frame from a technical interview.
-        YOUR GOAL: Detect ACTIVE cheating. Do NOT be alarmist.
+        Analyze this screen frame from a technical coding interview.
+        YOUR GOAL: Detect ACTIVE cheating.
         
         RULES:
-        1. IGNORE the taskbar, dock, or system tray. Pinned or background apps are NOT violations.
-        2. IGNORE the browser name/brand.
-        3. VIOLATIONS are ONLY:
-           (a) A foreground window that is NOT the code editor or the SynthInterview tab.
-           (b) The browser has search engines, AI sites, or documentation visible in the ACTIVE tab or side-by-side.
-           (c) The candidate is copying code from a non-editor source.
+        1. The candidate MUST be using the SynthInterview web platform.
+        2. IGNORE the taskbar, dock, or system tray.
+        3. STRICT VIOLATIONS include:
+           (a) Any split-screen or side-by-side windows. The screen must ONLY show the single interview browser window.
+           (b) ANY external IDE, text editor, or terminal (e.g., VS Code, Cursor, IntelliJ, Antigravity, local terminal). The ONLY allowed editor is the web-based Monaco editor inside the SynthInterview page.
+           (c) Any visible AI tool, chatbot, or search engine (e.g., ChatGPT, Claude, Grok, Google).
+           (d) Any messaging apps.
         
-        If unsure, do NOT flag.
+        Note: If you see an AI chat interface (like Grok) or a code editor (like VS Code) side-by-side with the interview, it is a DEFINITE VIOLATION.
            
         Return ONLY a JSON object:
         { "is_violation": boolean, "type": string, "reason": string }
         """
         
-        # Use gemini-2.5-flash for vision analysis
-        response = await asyncio.to_thread(
-            self.client.models.generate_content,
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_bytes(data=base64.b64decode(frame_b64), mime_type="image/jpeg"),
-                types.Part.from_text(text=prompt)
-            ],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
-        )
-        
         try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model_id,
+                contents=[
+                    types.Part.from_bytes(data=base64.b64decode(frame_b64), mime_type="image/jpeg"),
+                    types.Part.from_text(text=prompt)
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+            )
+            
+            print(f"[Vision] Gemini raw response: {response.text}")
+            
             import json
-            result = json.loads(response.text)
+            import re
+            
+            # Clean up response text in case it has markdown blocks
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = re.sub(r"^```json\s*", "", text)
+                text = re.sub(r"\s*```$", "", text)
+            elif text.startswith("```"):
+                text = re.sub(r"^```\s*", "", text)
+                text = re.sub(r"\s*```$", "", text)
+                
+            result = json.loads(text)
             if result.get("is_violation"):
+                print(f"[Vision] VIOLATION DETECTED: {result.get('reason')}")
                 return result
-        except:
-            pass
+            else:
+                print(f"[Vision] No violation detected.")
+        except Exception as e:
+            print(f"[Vision] Analysis error: {e}")
         return None
 
     async def _handle_violation(self, violation: Dict, frame_b64: str) -> Dict:
         """Applies threshold logic and logs to Firestore/Storage."""
-        if self.consecutive_flags >= 5:
-            violation_type = "HARD"
-        elif self.consecutive_flags >= 2:
-            violation_type = "SOFT"
+        if self.consecutive_flags >= 2:
+            violation_type = "TERMINATE"
         else:
-            violation_type = "FLAG"
+            violation_type = "HARD"
         
-        if violation_type in ["SOFT", "HARD"]:
+        if violation_type in ["HARD", "TERMINATE"]:
             timestamp = datetime.utcnow().isoformat()
             screenshot_ref = None
             
-            # For HARD violations, store screenshot and log to Firestore
-            if violation_type == "HARD":
+            # For HARD/TERMINATE violations, store screenshot and log to Firestore
+            if violation_type in ["HARD", "TERMINATE"]:
                 screenshot_ref = await self._upload_screenshot(frame_b64, timestamp)
                 log_entry = {
                     "timestamp": timestamp,

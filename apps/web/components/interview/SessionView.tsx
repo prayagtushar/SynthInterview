@@ -91,7 +91,7 @@ export default function SessionView() {
   const [code, setCode] = useState(DEFAULT_CODE["javascript"]);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
   const feedbackRef = useRef<HTMLDivElement>(null);
-  
+
   // Track current state in a ref for Monaco paste handler closure
   const currentStateForPaste = useRef(currentState);
   const editorRef = useRef<any>(null);
@@ -184,7 +184,10 @@ export default function SessionView() {
                 ? " Failing: " +
                   data.results
                     .filter((r) => !r.passed)
-                    .map((r) => `${r.label} (got ${r.actual}, expected ${r.expected})`)
+                    .map(
+                      (r) =>
+                        `${r.label} (got ${r.actual}, expected ${r.expected})`,
+                    )
                     .slice(0, 2)
                     .join("; ")
                 : " All tests passed!"
@@ -329,7 +332,7 @@ export default function SessionView() {
   );
 
   return (
-    <div className="flex h-screen bg-[#0d0d0d] text-white overflow-hidden font-mono">
+    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-mono">
       <Overlays
         currentState={currentState}
         isConnected={isConnected}
@@ -358,7 +361,7 @@ export default function SessionView() {
           connect={connect}
           disconnect={disconnect}
         />
-        
+
         <Banners
           isSpeaking={isSpeaking}
           isUserSpeaking={isUserSpeaking}
