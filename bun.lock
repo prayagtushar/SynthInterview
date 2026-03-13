@@ -6,12 +6,12 @@
       "name": "comic",
       "dependencies": {
         "@tailwindcss/postcss": "^4.2.1",
-        "postcss": "^8.5.6",
+        "postcss": "^8.5.8",
         "tailwindcss": "^4.2.1",
       },
       "devDependencies": {
         "prettier": "^3.8.1",
-        "turbo": "^2.8.12",
+        "turbo": "^2.8.16",
         "typescript": "^5.9.3",
       },
     },
