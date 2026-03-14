@@ -104,6 +104,7 @@ export function useInterview(sessionId: string = "default-session") {
     setIsSpeaking: setMediaSpeaking,
     mediaStream,
     screenStream,
+    webcamStream,
   } = useMedia({
     onAudioData: (b64, rms) => {
       if (isMutedRef.current) {
@@ -371,5 +372,6 @@ export function useInterview(sessionId: string = "default-session") {
       lastCopiedTextRef.current = text;
     },
     getLastCopied: () => lastCopiedTextRef.current,
+    webcamStream,
   };
 }

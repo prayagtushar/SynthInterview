@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CircleDot, XCircle, AlertTriangle, Monitor } from "lucide-react";
 
 interface HeaderProps {
@@ -22,6 +22,36 @@ export const Header: React.FC<HeaderProps> = ({
   connect,
   disconnect,
 }) => {
+  const [time, setTime] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isTimerRunning) {
+      interval = setInterval(() => setTime((t) => t + 1), 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTimerRunning]);
+
+  useEffect(() => {
+    if (isConnected) {
+      setIsTimerRunning(true);
+      setTime(0);
+    } else {
+      setIsTimerRunning(false);
+    }
+  }, [isConnected]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
   return (
     <header className="h-12 border-b border-indigo-500/20 flex items-center justify-between px-5 bg-slate-900 shrink-0">
       <div className="flex items-center gap-3">
@@ -37,7 +67,15 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        <div
+          onClick={() => setIsTimerRunning(!isTimerRunning)}
+          className="cursor-pointer text-xs font-mono font-bold text-slate-300 hover:text-white bg-slate-800 px-3 py-1 rounded-md border border-slate-700 transition-colors"
+          title="Click to start/stop timer"
+        >
+          {formatTime(time)}
+        </div>
+
         {(() => {
           const conversationStates = new Set([
             "THINK_TIME",
