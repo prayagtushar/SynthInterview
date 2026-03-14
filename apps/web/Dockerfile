@@ -9,7 +9,7 @@ COPY packages/types/package.json ./packages/types/package.json
 COPY packages/types/src ./packages/types/src
 COPY packages/config ./packages/config
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Stage 2: Build the Next.js app
 FROM deps AS builder
