@@ -23,6 +23,7 @@ export function useMedia({
   const screenLostTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [screenLost, setScreenLostState] = useState(false);
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const screenActiveRef = useRef<boolean>(true);
   const isSpeakingRef = useRef(false);
 
@@ -138,8 +139,10 @@ export function useMedia({
           echoCancellation: true,
           noiseSuppression: true,
         },
+        video: true,
       });
       mediaStreamRef.current = audioStream;
+      setWebcamStream(audioStream);
 
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 5, displaySurface: "monitor" as any },
@@ -161,6 +164,7 @@ export function useMedia({
     audioContextRef.current?.close();
     frameWorkerRef.current?.terminate();
     setScreenLostState(false);
+    setWebcamStream(null);
   }, []);
 
   const stopScreenShare = useCallback(() => {
@@ -214,5 +218,6 @@ export function useMedia({
     setIsSpeaking,
     mediaStream: mediaStreamRef.current,
     screenStream: screenStreamRef.current,
+    webcamStream,
   };
 }

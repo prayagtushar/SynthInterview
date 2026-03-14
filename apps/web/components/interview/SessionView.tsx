@@ -62,7 +62,35 @@ export default function SessionView() {
     reshareScreen,
     stopScreenShare,
     acquireAndStartMedia,
+    webcamStream,
   } = useInterview(sessionId);
+
+  // Additional Cheat Detections: Disable Context Menu and Track Mouse Leaves
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      if (currentState === "CODING" || currentState === "PROBLEM_DELIVERY") {
+        e.preventDefault();
+        sendEvent("cheating_attempt", { reason: "Right-click context menu blocked" });
+      }
+    };
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      // If mouse leaves the top boundary, suspect they're checking another monitor or browser UI
+      if (e.clientY <= 0 || e.clientX <= 0 || (e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
+        if (currentState === "CODING" || currentState === "THINK_TIME") {
+          sendEvent("cheating_attempt", { reason: "Mouse left the interview window" });
+        }
+      }
+    };
+
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [currentState, sendEvent]);
 
   // Sync scorecard from WebSocket into local state
   useEffect(() => {
@@ -432,6 +460,22 @@ export default function SessionView() {
           />
         </div>
       </div>
+
+      {webcamStream && (
+        <div className="absolute bottom-6 right-6 z-[60] overflow-hidden rounded-full border-4 border-slate-700 shadow-[0_0_20px_rgba(0,0,0,0.5)] w-48 h-48 bg-slate-900 pointer-events-none">
+          <video
+            className="w-full h-full object-cover transform scale-x-[-1]"
+            ref={(node) => {
+              if (node && node.srcObject !== webcamStream) {
+                node.srcObject = webcamStream;
+              }
+            }}
+            autoPlay
+            playsInline
+            muted
+          />
+        </div>
+      )}
     </div>
   );
 }
