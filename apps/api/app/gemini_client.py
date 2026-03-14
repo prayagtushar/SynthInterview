@@ -33,6 +33,7 @@ class GeminiLiveClient:
                     silenceDurationMs=300,
                 )
             ),
+            tools=tools,
         )
         self._session_ctx = self.client.aio.live.connect(model=self.model_id, config=config)
         self.session = await self._session_ctx.__aenter__()
@@ -221,8 +222,7 @@ class GeminiLiveClient:
                         # Signal that it's safe to send the next text turn
                         self._turn_complete.set()
                         yield {"type": "turn_complete"}
-                if not had_data:
-                    return
+                # Don't exit on empty batch — keep listening for next turn
             except asyncio.CancelledError:
                 return
             except Exception as e:

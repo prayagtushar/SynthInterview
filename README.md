@@ -53,40 +53,156 @@ synth-interview/
 
 ### Getting Started
 
-**Prerequisites**
-Ensure you have [Bun](https://bun.sh/) and Python installed on your system.
+<details>
+<summary><strong>🍎 macOS Setup</strong></summary>
 
-**1. Install dependencies**
+#### Prerequisites
 
-```bash
-bun install
-```
+Before setting up the project, ensure you have the following installed on your Mac:
 
-**2. Environment Configuration**
-Duplicate the provided example environment files and add your API keys.
+| Tool                  | Required Version | Installation                                                                    |
+| --------------------- | ---------------- | ------------------------------------------------------------------------------- | ----- |
+| **Bun**               | Latest           | `curl -fsSL https://bun.sh/install                                              | bash` |
+| **Python**            | 3.10+            | Pre-installed or via `brew install python@3.11`                                 |
+| **Redis**             | Latest           | `brew install redis` then `brew services start redis`                           |
+| **Docker** (optional) | Latest           | [Download from Docker website](https://www.docker.com/products/docker-desktop/) |
 
-```bash
-cp .env.example .env
-cp apps/web/.env.example apps/web/.env
-cp apps/api/.env.example apps/api/.env
-```
+#### Setup Steps
 
-**3. Launch Development Server**
+1. **Install Homebrew** (if not installed):
 
-```bash
-bun run dev
-```
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
 
-The services will initialize across their respective local ports:
+2. **Install Redis**:
 
-- Web Interface: `http://localhost:3000`
-- API Server: `http://localhost:8000`
+   ```bash
+   brew install redis
+   brew services start redis
+   ```
 
-<br />
+3. **Install Bun**:
 
-### Docker Deployment
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
 
-For a fully containerized environment, you can build and run both services using Docker Compose.
+4. **Verify installations**:
+
+   ```bash
+   bun --version        # Should show version
+   python3 --version    # Should show 3.10+
+   redis-cli ping       # Should return PONG
+   ```
+
+5. **Install dependencies**:
+
+   ```bash
+   bun install
+   ```
+
+6. **Configure environment**:
+
+   ```bash
+   cp .env.example .env
+   cp apps/web/.env.example apps/web/.env
+   cp apps/api/.env.example apps/api/.env
+   ```
+
+7. **Start development servers**:
+   ```bash
+   bun run dev
+   ```
+
+Access the application at:
+
+- Web: `http://localhost:3000`
+- API: `http://localhost:8000`
+
+</details>
+
+<details>
+<summary><strong>🪟 Windows Setup</strong></summary>
+
+#### Prerequisites
+
+| Tool                  | Required Version | Installation                                                                                  |
+| --------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
+| **Bun**               | Latest           | `winget install oven-sh.bun` or [Download installer](https://github.com/oven-sh/bun/releases) |
+| **Python**            | 3.10+            | [Download from python.org](https://www.python.org/downloads/)                                 |
+| **Redis**             | Latest           | [Download Redis for Windows](https://github.com/tporadowski/redis/releases) or use WSL        |
+| **Docker** (optional) | Latest           | [Download from Docker website](https://www.docker.com/products/docker-desktop/)               |
+
+#### Setup Steps (Windows)
+
+1. **Install Python**:
+   - Download Python 3.11+ from [python.org](https://www.python.org/downloads/)
+   - During installation, check "Add Python to PATH"
+
+2. **Install Bun**:
+
+   ```powershell
+   winget install oven-sh.bun
+   ```
+
+   Or download from [GitHub releases](https://github.com/oven-sh/bun/releases)
+
+3. **Install Redis** (choose one method):
+
+   **Option A - Using WSL (Recommended)**:
+
+   ```bash
+   # Install WSL first
+   wsl --install
+   # Then in Ubuntu/WSL
+   sudo apt update
+   sudo apt install redis-server
+   redis-server --daemonize yes
+   ```
+
+   **Option B - Using Memurai or Redis Windows port**:
+   - Download [Memurai](https://www.memurai.com/) (free) or
+   - Download Redis from [GitHub](https://github.com/tporadowski/redis/releases)
+
+4. **Verify installations** (in PowerShell):
+
+   ```powershell
+   bun --version
+   python --version    # Or python3 --version
+   redis-cli ping      # If using WSL or Redis in PATH
+   ```
+
+5. **Install dependencies**:
+
+   ```powershell
+   bun install
+   ```
+
+6. **Configure environment**:
+
+   ```powershell
+   # In PowerShell
+   copy .env.example .env
+   copy apps\web\.env.example apps\web\.env
+   copy apps\api\.env.example apps\api\.env
+   ```
+
+7. **Start development servers**:
+   ```powershell
+   bun run dev
+   ```
+
+Access the application at:
+
+- Web: `http://localhost:3000`
+- API: `http://localhost:8000`
+
+</details>
+
+### Quick Start (Docker Alternative)
+
+For a fully containerized environment without manual installations:
 
 ```bash
 docker compose up --build
