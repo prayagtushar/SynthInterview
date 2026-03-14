@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "setup": "uv venv .venv --recreate && uv pip install --python .venv/bin/python -r requirements.txt",
-    "dev": "source .venv/bin/activate && uvicorn app.main:app --reload --port 8000",
-    "build": "python3 -m compileall app",
-    "lint": "python3 -m compileall app",
-    "typecheck": "python3 -m py_compile app/main.py"
+    "setup": "uv venv .venv --recreate && uv pip install -r requirements.txt",
+    "dev": "uv run uvicorn app.main:app --reload --port 8000",
+    "build": "uv run python -m compileall app",
+    "lint": "uv run python -m compileall app",
+    "typecheck": "uv run python -m py_compile app/main.py"
   }
 }
