@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 import asyncio
 from google.cloud import firestore
+import re
 
 
 class CheatDetector:
@@ -27,10 +28,25 @@ class CheatDetector:
         self.consecutive_flags = 0
         self.total_strikes = 0
         self.last_analysis_time = 0
-        self.analysis_interval = 4  # Analysis frequency (seconds)
+        self.analysis_interval = 2.0  # Increased frequency (2s)
         self.violation_log: List[Dict] = []
+        self.hydrate()
 
-    async def process_frame(self, frame_b64: str) -> Optional[Dict]:
+    def hydrate(self):
+        """Restores history from Firestore."""
+        if not self.db: return
+        try:
+            doc = self.db.collection("sessions").document(self.session_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                log = data.get("violation_log", [])
+                self.violation_log = log
+                self.total_strikes = len(log)
+                print(f"[Vision] Hydrated CheatDetector: {self.total_strikes} existing strikes.")
+        except Exception as e:
+            print(f"CheatDetector hydration error: {e}")
+
+    async def process_frame(self, frame_b64: str, source: str = "screen") -> Optional[Dict]:
         """Analyzes a frame for violations."""
         now = time.time()
         if now - self.last_analysis_time < self.analysis_interval:
@@ -40,7 +56,7 @@ class CheatDetector:
         print(f"[Vision] Analyzing frame using {self.model_id}... (Consecutive Flags: {self.consecutive_flags})")
 
         try:
-            violation = await self._analyze_with_gemini(frame_b64)
+            violation = await self._analyze_with_gemini(frame_b64, source)
             if violation:
                 self.consecutive_flags += 1
                 self.total_strikes += 1
@@ -52,28 +68,27 @@ class CheatDetector:
                 if self.consecutive_flags > 0:
                     self.consecutive_flags -= 1
                     print(f"[Vision] No violation. Counter decayed to: {self.consecutive_flags}")
-                return None
+                return False  # Explicitly return False for analyzed but clean
         except Exception as e:
             print(f"CheatDetector error: {e}")
             return None
 
-    async def _analyze_with_gemini(self, frame_b64: str) -> Optional[Dict]:
+    async def _analyze_with_gemini(self, frame_b64: str, source: str) -> Optional[Dict]:
         """Uses Gemini Vision to detect violations."""
-        prompt = """
-        Analyze this image from a technical coding interview proctoring system.
-        The image could be the candidate's SCREEN or their WEBCAM feed.
+        prompt = f"""
+        Analyze this {source.upper()} image from a technical coding interview proctoring system.
         
         GOAL: Detect UNFAIR assistance or proctoring violations.
         
         VIOLATIONS TO DETECT:
-        1. Split-screen/Dual Monitor: If THIS IS A SCREEN FRAME, detect any other window (VS Code, Browser, Notes) alongside the interview web platform.
-        2. External IDEs/Terminals: VS Code, Cursor, IntelliJ, Terminal usage outside the browser.
-        3. AI Tools/Search: ChatGPT, Claude, Google Search, etc.
-        4. Multiple People: If THIS IS A WEBCAM FRAME, detect more than one person in the frame.
-        5. Face Missing/Covered: If THIS IS A WEBCAM FRAME, detect if the candidate's face is missing, covered (e.g., using a mask or hands), or if they are looking away for too long.
-        6. Electronic Devices: Detect phones, tablets, or other secondary devices used for assistance.
+        1. Split-screen/Dual Monitor: If THIS IS A SCREEN FRAME, detect any other window (VS Code, Browser, Notes) alongside the interview platform. The interview web platform should occupy the entire screen.
+        2. External IDEs/Terminals: Detect usage of VS Code, Cursor, IntelliJ, or Terminal outside the browser.
+        3. AI Tools/Search: Detect ChatGPT, Claude, Google Search, or any AI coding assistants.
+        4. Multiple People: If THIS IS A WEBCAM FRAME, detect more than one person in the frame, including people passing by in the background or partial silhouettes.
+        5. Face Missing/Covered: If THIS IS A WEBCAM FRAME, detect if the candidate's face is obstructed, if they are wearing a mask/headphones (unless allowed), or looking away frequently.
+        6. Electronic Devices: STRICTLY detect phones, tablets, e-readers, or any secondary screens. Even if only a corner of a phone is visible or the candidate is looking at a phone off-camera (infer from gaze), flag it.
         
-        CRITICAL: Be extremely strict. For screen frames, the SynthInterview platform must be EXCLUSIVE. For webcam frames, ONLY the candidate should be visible and engaged.
+        CRITICAL: Your goal is a zero-tolerance proctoring check. If you see ANY evidence of unfair help, flag it with high probability.
         
         Return ONLY valid JSON:
         { 
@@ -100,12 +115,6 @@ class CheatDetector:
 
             # Clean up response (handle markdown)
             text = (response.text or "").strip()
-            if text.startswith("```json"):
-                text = re.sub(r"^```json\s*", "", text)
-                text = re.sub(r"\s*```$", "", text)
-            elif text.startswith("```"):
-                text = re.sub(r"^```\s*", "", text)
-                text = re.sub(r"\s*```$", "", text)
 
             # More robust JSON extraction
             json_match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -127,8 +136,8 @@ class CheatDetector:
 
     async def _handle_violation(self, violation: Dict, frame_b64: str) -> Dict:
         """Applies threshold logic and logs to Firestore/Storage."""
-        # 3 strikes OR 2 consecutive flags = TERMINATE
-        if self.consecutive_flags >= 2 or self.total_strikes >= 3:
+        # 5 total strikes OR 3 consecutive flags = TERMINATE
+        if self.consecutive_flags >= 3 or self.total_strikes >= 5:
             violation_type = "TERMINATE"
         else:
             violation_type = "HARD"

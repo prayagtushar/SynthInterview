@@ -47,7 +47,7 @@ class InterviewAgent:
                 return False
             data = doc.to_dict()
             stored_status = data.get("status", "IDLE")
-            if stored_status in ("IDLE", "COMPLETED"):
+            if stored_status in ("IDLE", "COMPLETED", "TERMINATED"):
                 return False
             try:
                 self.current_state = AgentState(stored_status)
@@ -73,7 +73,9 @@ class InterviewAgent:
     async def update_state(self, new_state: AgentState, metadata: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """Transitions the agent to a new state and updates Firestore."""
         old_state = self.current_state
-        self.previous_state = old_state
+        if old_state not in (AgentState.FLAGGED, AgentState.SCREEN_NOT_VISIBLE, AgentState.ENV_CHECK):
+            self.previous_state = old_state
+        
         self.current_state = new_state
         self.last_transition_time = datetime.utcnow()
         if metadata:

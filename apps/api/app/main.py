@@ -330,6 +330,7 @@ async def create_scorecard(session_id: str):
 _ACTIVE_SESSIONS = {}
 
 @app.websocket("/ws/live/{session_id}")
+@app.websocket("/sessions/{session_id}/ws")
 async def live_socket(websocket: WebSocket, session_id: str) -> None:
     await websocket.accept()
 
@@ -565,16 +566,28 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             except Exception as e:
                 print(f"Receive loop error: {e}")
 
-        # Forwarder loop
-        analysis_task: Optional[asyncio.Task] = None
+        # Forwarder loops for different vision sources
+        screen_task: Optional[asyncio.Task] = None
+        webcam_task: Optional[asyncio.Task] = None
         last_frame_time = time.time()
 
-        async def analyze_frame_bg(frame_data: str):
+        async def analyze_frame_bg(frame_data: str, source: str = "screen"):
             """Vision check for cheating."""
             try:
                 # Add a timeout to prevent hanging analysis tasks
-                v = await asyncio.wait_for(cheat_detector.process_frame(frame_data), timeout=10.0)
-                if not v:
+                v = await asyncio.wait_for(cheat_detector.process_frame(frame_data, source), timeout=10.0)
+                if v is None:
+                    return # Skipped frame, do nothing
+
+                if v is False:
+                    # Explicitly notify that the current frame is clean
+                    await websocket.send_json({
+                        "type": "state_update",
+                        "payload": agent.current_state.value,
+                        "metadata": agent.metadata,
+                        "violation": None,
+                        "is_webcam": source == "webcam"
+                    })
                     return
 
                 severity = v.get("severity", "FLAG")
@@ -616,11 +629,23 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     if scripted:
                         await gemini.send_text_urgent(scripted)
                     await agent.save_final_report()
+                else:
+                    # FLAG level (low probability or early strike) - still show to candidate
+                    await websocket.send_json(
+                        {
+                            "type": "state_update",
+                            "payload": agent.current_state.value,
+                            "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
+                            "metadata": agent.metadata,
+                            "violation": v,
+                            "is_webcam": source == "webcam"
+                        }
+                    )
             except Exception as e:
                 print(f"Background analysis task failed: {e}")
 
         async def forward_client_to_gemini():
-            nonlocal analysis_task, last_frame_time
+            nonlocal screen_task, webcam_task, last_frame_time
             try:
                 while True:
                     raw = await websocket.receive_text()
@@ -722,17 +747,16 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
                     elif msg_type == "frame":
                         msg_data = data["payload"]
+                        source = data.get("source", "screen")
                         latency = time.time() - last_frame_time
-                        print(f"[Vision] Frame received. State: {agent.current_state}. Latency: {latency:.2f}s")
-                        # Only analyze screen in certain states to save cost
-                        if agent.current_state in SCREEN_REQUIRED_STATES:
-                            if analysis_task is None or analysis_task.done():
-                                print(f"[Vision] Starting background analysis task.")
-                                analysis_task = asyncio.create_task(analyze_frame_bg(msg_data))
-                            else:
-                                print(f"[Vision] Analysis task already running, skipping frame.")
-                        else:
-                            print(f"[Vision] Not in screen-required state, skipping analysis.")
+                        
+                        if agent.current_state not in (AgentState.IDLE, AgentState.COMPLETED):
+                            if source == "webcam":
+                                if webcam_task is None or webcam_task.done():
+                                    webcam_task = asyncio.create_task(analyze_frame_bg(msg_data, source="webcam"))
+                            elif agent.current_state in SCREEN_REQUIRED_STATES:
+                                if screen_task is None or screen_task.done():
+                                    screen_task = asyncio.create_task(analyze_frame_bg(msg_data, source="screen"))
                         last_frame_time = time.time()
 
             except WebSocketDisconnect:
@@ -742,8 +766,9 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             except Exception as e:
                 print(f"Forwarder error: {e}")
             finally:
-                if analysis_task:
-                    analysis_task.cancel()
+                if screen_task: screen_task.cancel()
+                if webcam_task: webcam_task.cancel()
+                print(f"Forwarder tasks cleaned up for {session_id}")
 
         # Timer watcher
         async def watch_agent_timer():
