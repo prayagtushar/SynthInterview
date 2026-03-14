@@ -211,8 +211,10 @@ export function useInterview(sessionId: string = 'default-session') {
 		isMutedRef.current = false;
 		setResetKey((k) => k + 1);
 
-		const host = window.location.hostname;
-		const ws = new WebSocket(`ws://${host}:8000/ws/live/${sessionId}`);
+		const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+		const wsProtocol = apiBase.startsWith("https") ? "wss" : "ws";
+		const wsHost = apiBase.replace(/^https?:\/\//, "");
+		const ws = new WebSocket(`${wsProtocol}://${wsHost}/ws/live/${sessionId}`);
 		socketRef.current = ws;
 
 		ws.onopen = () => {

@@ -28,9 +28,12 @@ substitutions:
   _WEB_SERVICE: synth-interview-web
   # GCP project: synth-interview-8e83a
   _NEXT_PUBLIC_API_URL: ""
+  _APP_URL: ""
+  _GEMINI_LIVE_MODEL: "gemini-2.5-flash-native-audio-preview-12-2025"
+  _GEMINI_TEXT_MODEL: "gemini-2.5-flash"
   _NEXT_PUBLIC_FIREBASE_API_KEY: ""
-  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ""
   _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ""
+  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ""
   _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ""
   _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ""
   _NEXT_PUBLIC_FIREBASE_APP_ID: ""
@@ -100,14 +103,15 @@ steps:
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
+      - --ingress=all
       - --port=8000
       - --min-instances=0
       - --max-instances=10
       - --memory=1Gi
       - --cpu=1
       - --timeout=3600
-      - --set-env-vars=APP_ENV=production
-      - --update-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,GEMINI_MODEL=GEMINI_MODEL:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,ELEVENLABS_API_KEY=ELEVENLABS_API_KEY:latest,ELEVENLABS_VOICE_ID=ELEVENLABS_VOICE_ID:latest,REDIS_URL=REDIS_URL:latest,SMTP_HOST=SMTP_HOST:latest,SMTP_PORT=SMTP_PORT:latest,SMTP_USER=SMTP_USER:latest,SMTP_PASS=SMTP_PASS:latest,EMAIL_FROM=EMAIL_FROM:latest
+      - --set-env-vars=APP_ENV=production,APP_URL=${_APP_URL},GEMINI_LIVE_MODEL=${_GEMINI_LIVE_MODEL},GEMINI_TEXT_MODEL=${_GEMINI_TEXT_MODEL},ALLOWED_ORIGINS=${_APP_URL}
+      - --update-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,SMTP_HOST=SMTP_HOST:latest,SMTP_PORT=SMTP_PORT:latest,SMTP_USER=SMTP_USER:latest,SMTP_PASS=SMTP_PASS:latest,EMAIL_FROM=EMAIL_FROM:latest
     waitFor: [push-api]
 
   # Deploy Web to Cloud Run
