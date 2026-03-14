@@ -4,6 +4,7 @@ import { AIAvatar } from "./AIAvatar";
 import { FeedbackList } from "./FeedbackList";
 import { ScorecardView } from "./ScorecardView";
 import { ProgressFooter } from "./ProgressFooter";
+import { Zap, Command } from "lucide-react";
 
 interface RightPanelProps {
   isSpeaking: boolean;
@@ -35,43 +36,51 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   currentState,
 }) => {
   return (
-    <div className="w-[340px] flex flex-col bg-slate-950 shrink-0 border-l border-indigo-500/10">
-      <AIAvatar
-        isSpeaking={isSpeaking}
-        isUserSpeaking={isUserSpeaking}
-        isConnected={isConnected}
-      />
+    <div className="w-[340px] flex flex-col bg-slate-950 shrink-0 border-l border-white/5 relative z-10">
+      <div className="p-4 bg-gradient-to-b from-slate-900/50 to-transparent">
+        <AIAvatar
+          isSpeaking={isSpeaking}
+          isUserSpeaking={isUserSpeaking}
+          isConnected={isConnected}
+        />
+      </div>
 
-      {/* Tab Bar */}
-      <div className="flex border-b border-indigo-500/20 shrink-0 bg-slate-900/50">
+      {/* Tab Switcher */}
+      <div className="mx-4 mb-4 flex p-1 bg-slate-900 border border-white/5 rounded-xl shrink-0 shadow-inner">
         <button
           onClick={() => setActiveTab("feedback")}
-          className={`flex-1 py-3 text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
             activeTab === "feedback"
-              ? "text-indigo-400 bg-indigo-500/5 shadow-[inset_0_-2px_0_0_#6366f1]"
-              : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+              ? "bg-indigo-500/10 text-indigo-400 shadow-sm border border-indigo-500/20"
+              : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
           }`}
         >
-          AI Feedback
+          Insights
         </button>
         <button
           onClick={() => setActiveTab("scorecard")}
-          className={`flex-1 py-3 text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
             activeTab === "scorecard"
-              ? "text-indigo-400 bg-indigo-500/5 shadow-[inset_0_-2px_0_0_#6366f1]"
-              : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+              ? "bg-indigo-500/10 text-indigo-400 shadow-sm border border-indigo-500/20"
+              : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
           }`}
         >
-          Scorecard
+          Proctor
         </button>
       </div>
 
-      {/* Manual Controls */}
+      {/* Manual Controls - Refined UI */}
       {isConnected && transitions.length > 0 && (
-        <div className="px-4 py-3 border-b border-white/5 space-y-2 shrink-0">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600">
-            Actions
-          </p>
+        <div className="px-5 py-4 bg-white/[0.02] border-y border-white/5 shrink-0 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded bg-indigo-500/20">
+              <Command size={10} className="text-indigo-400" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+              Interactive Actions
+            </span>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {transitions.map((t) => {
               const handleClick = () => {
@@ -88,9 +97,12 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                   key={t.label}
                   id={`action-${t.event}`}
                   onClick={handleClick}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold text-gray-300 hover:text-white transition-colors"
+                  className="group relative flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition-all shadow-sm active:scale-95"
                 >
-                  {t.icon}
+                  <Zap
+                    size={11}
+                    className="text-slate-600 group-hover:text-amber-400 transition-colors"
+                  />
                   {t.label}
                 </button>
               );
@@ -99,19 +111,23 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         </div>
       )}
 
-      {/* Feedback / Scorecard Content */}
-      {activeTab === "feedback" ? (
-        <FeedbackList
-          feedback={feedback}
-          feedbackRef={feedbackRef}
-          isConnected={isConnected}
-          isSpeaking={isSpeaking}
-        />
-      ) : (
-        <ScorecardView scorecard={scorecard} currentState={currentState} />
-      )}
+      {/* Main Container */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {activeTab === "feedback" ? (
+          <FeedbackList
+            feedback={feedback}
+            feedbackRef={feedbackRef}
+            isConnected={isConnected}
+            isSpeaking={isSpeaking}
+          />
+        ) : (
+          <ScorecardView scorecard={scorecard} currentState={currentState} />
+        )}
+      </div>
 
-      <ProgressFooter currentState={currentState} />
+      <div className="p-4 bg-slate-900/30 border-t border-white/5 shrink-0">
+        <ProgressFooter currentState={currentState} />
+      </div>
     </div>
   );
 };

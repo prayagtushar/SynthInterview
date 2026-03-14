@@ -16,6 +16,7 @@ class AgentState(Enum):
     TESTING = "TESTING"
     OPTIMIZATION = "OPTIMIZATION"
     COMPLETED = "COMPLETED"
+    TERMINATED = "TERMINATED"
     FLAGGED = "FLAGGED"
     SCREEN_NOT_VISIBLE = "SCREEN_NOT_VISIBLE"
 
@@ -176,7 +177,7 @@ class InterviewAgent:
         elif state == AgentState.OPTIMIZATION:
             return "[SYSTEM] Discuss Big O optimization."
 
-        elif state == AgentState.COMPLETED:
+        elif state in (AgentState.COMPLETED, AgentState.TERMINATED):
             if self.metadata.get("terminated_for_cheating"):
                 return "[SYSTEM] Say exactly: 'You've exceeded the allowed number of cheating violations — terminating this session. Goodbye!' Then stop."
             return "[SYSTEM] Thank them warmly and end the interview."
@@ -283,8 +284,46 @@ class InterviewAgent:
                 "Do not proceed with the interview until the screen is restored."
             ),
         }
+        last_code = f"\n\nCANDIDATE'S CURRENT CODE:\n```\n{self._candidate_code}\n```\n" if self._candidate_code else ""
         instr = state_instructions.get(self.current_state, "You are a professional technical interviewer.")
-        return f"{rules}\n\n[CURRENT STATE: {self.current_state.value}]\nINSTRUCTION: {instr}"
+        return f"{rules}\n\n[CURRENT STATE: {self.current_state.value}]{last_code}\nINSTRUCTION: {instr}"
+
+    def get_session_history_context(self) -> str:
+        """Returns a brief summary of the last 3-4 turns to warm the model's memory on reconnection."""
+        # This is a placeholder for real history retrieval if needed. 
+        # For now, we use the current state and latest code as the primary context.
+        return f"[RECONNECTION CONTEXT: The candidate has reconnected. They are currently in phase {self.current_state.value}. Please acknowledge the reconnection briefly and continue naturally.]"
+
+    async def save_final_report(self) -> bool:
+        """Saves a final performance and integrity report to Firestore."""
+        if not self.db:
+            return False
+        try:
+            report = {
+                "generatedAt": datetime.utcnow().isoformat(),
+                "stateReached": self.current_state.value,
+                "terminatingReason": self.metadata.get("termination_reason"),
+                "integrity": {
+                    "cheatDetected": self.metadata.get("cheat_detected", False),
+                    "tabSwitches": self.metadata.get("tab_switch_count", 0),
+                    "mouseLeaves": self.metadata.get("mouse_leaves", 0),
+                    "faceAnomalies": self.metadata.get("face_anomaly_count", 0),
+                    "cheatingAttempts": self.metadata.get("cheat_reason", "None reported"),
+                },
+                "performance": {
+                    "hintsUsed": self.hint_index,
+                    "finalCode": self._candidate_code,
+                }
+            }
+            self.db.collection("sessions").document(self.session_id).update({
+                "finalReport": report,
+                "completedAt": datetime.utcnow().isoformat()
+            })
+            print(f"Final report saved for {self.session_id}")
+            return True
+        except Exception as e:
+            print(f"Error saving final report: {e}")
+            return False
 
     async def handle_event(self, event_type: str, data: Any) -> Optional[str]:
         """Processes events from voice, vision, or timers and triggers transitions."""
@@ -321,10 +360,13 @@ class InterviewAgent:
             msg = await self.update_state(AgentState.COMPLETED)
 
         # Global events (can fire from any state)
-        elif event_type == "cheat_detected":
+        elif event_type == "cheat_detected" or event_type == "cheating_attempt":
             self.metadata["cheat_detected"] = True
             if isinstance(data, dict) and "reason" in data:
-                self.metadata["cheat_reason"] = data["reason"]
+                reason = data["reason"]
+                self.metadata["cheat_reason"] = reason
+                if "face" in reason.lower() or "person" in reason.lower():
+                    self.metadata["face_anomaly_count"] = self.metadata.get("face_anomaly_count", 0) + 1
             msg = await self.update_state(AgentState.FLAGGED)
 
         elif self.current_state == AgentState.FLAGGED and event_type == "warning_acknowledged":
@@ -379,9 +421,11 @@ class InterviewAgent:
 
         elif event_type == "end_interview":
             reason = data.get("reason", "normal") if isinstance(data, dict) else "normal"
-            if reason in ("tab_switch_limit", "tab_away_timeout", "vision_cheat_limit"):
+            if reason != "normal":
                 self.metadata["terminated_for_cheating"] = True
-            msg = await self.update_state(AgentState.COMPLETED)
+                msg = await self.update_state(AgentState.TERMINATED)
+            else:
+                msg = await self.update_state(AgentState.COMPLETED)
 
         elif event_type == "terminate_session":
             reason = data.get("reason", "unknown") if isinstance(data, dict) else "unknown"

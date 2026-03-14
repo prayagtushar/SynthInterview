@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 interface UseMediaProps {
   onAudioData: (b64: string, rms: number) => void;
@@ -21,11 +21,18 @@ export function useMedia({
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const frameWorkerRef = useRef<Worker | null>(null);
   const screenLostTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const faceVideoRef = useRef<HTMLVideoElement>(null);
+  const isProcessingRef = useRef(false);
+  const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [screenLost, setScreenLostState] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const screenActiveRef = useRef<boolean>(true);
   const isSpeakingRef = useRef(false);
+
+  // No face detection models to load
+
+  // No face detection interval
 
   const setScreenActive = (active: boolean) => {
     screenActiveRef.current = active;
@@ -132,6 +139,7 @@ export function useMedia({
     screen: MediaStream;
   } | null> => {
     try {
+      // Get audio + webcam for face detection
       const audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -139,11 +147,40 @@ export function useMedia({
           echoCancellation: true,
           noiseSuppression: true,
         },
-        video: true,
+        video: { width: 320, height: 240 }, // Low-res webcam for face detection
       });
       mediaStreamRef.current = audioStream;
       setWebcamStream(audioStream);
 
+      // Set up proctoring video element
+      if (faceVideoRef.current) {
+        faceVideoRef.current.srcObject = audioStream;
+        faceVideoRef.current.play().catch(console.warn);
+      }
+
+      // Start webcam frame interval (for Gemini proctoring)
+      if (webcamIntervalRef.current) clearInterval(webcamIntervalRef.current);
+      webcamIntervalRef.current = setInterval(async () => {
+        const video = faceVideoRef.current;
+        if (!video || video.readyState < 2) return;
+        try {
+          const bmp = await createImageBitmap(video);
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 240;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(bmp, 0, 0, 320, 240);
+            const b64 = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+            onFrameData(b64);
+          }
+          bmp.close();
+        } catch (e) {
+          console.warn("[Webcam] Capture failed:", e);
+        }
+      }, 3000); // Send webcam frame every 3s
+
+      // Get screen share
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 5, displaySurface: "monitor" as any },
         audio: false,
@@ -160,11 +197,15 @@ export function useMedia({
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    if (webcamIntervalRef.current) clearInterval(webcamIntervalRef.current);
     if (screenLostTimerRef.current) clearTimeout(screenLostTimerRef.current);
     audioContextRef.current?.close();
     frameWorkerRef.current?.terminate();
     setScreenLostState(false);
     setWebcamStream(null);
+    if (faceVideoRef.current) {
+      faceVideoRef.current.srcObject = null;
+    }
   }, []);
 
   const stopScreenShare = useCallback(() => {
@@ -219,5 +260,6 @@ export function useMedia({
     mediaStream: mediaStreamRef.current,
     screenStream: screenStreamRef.current,
     webcamStream,
+    faceVideoRef,
   };
 }

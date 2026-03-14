@@ -19,6 +19,7 @@ import {
 } from "../../lib/constants";
 import { ScorecardData, RunResult, ExecResult } from "../../lib/types";
 import { generateProblemComments } from "../../lib/interviewUtils";
+// Face detection is handled in useMedia hook
 
 // Sub-components
 import { Sidebar } from "./Sidebar";
@@ -70,25 +71,48 @@ export default function SessionView() {
     const handleContextMenu = (e: MouseEvent) => {
       if (currentState === "CODING" || currentState === "PROBLEM_DELIVERY") {
         e.preventDefault();
-        sendEvent("cheating_attempt", { reason: "Right-click context menu blocked" });
+        sendEvent("cheating_attempt", {
+          reason: "Right-click context menu blocked",
+        });
       }
     };
 
     const handleMouseLeave = (e: MouseEvent) => {
       // If mouse leaves the top boundary, suspect they're checking another monitor or browser UI
-      if (e.clientY <= 0 || e.clientX <= 0 || (e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
+      if (
+        e.clientY <= 0 ||
+        e.clientX <= 0 ||
+        e.clientX >= window.innerWidth ||
+        e.clientY >= window.innerHeight
+      ) {
         if (currentState === "CODING" || currentState === "THINK_TIME") {
-          sendEvent("cheating_attempt", { reason: "Mouse left the interview window" });
+          sendEvent("cheating_attempt", {
+            reason: "Mouse left the interview window",
+          });
+        }
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If they type text while the document doesn't have focus, they're typing in another window
+      if (!document.hasFocus() && e.key.length === 1) {
+        // e.key.length === 1 catches standard character typings
+        if (currentState === "CODING" || currentState === "THINK_TIME") {
+          sendEvent("cheating_attempt", {
+            reason: "Typing detected outside of interview window bounds",
+          });
         }
       }
     };
 
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("mouseleave", handleMouseLeave);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("mouseleave", handleMouseLeave);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [currentState, sendEvent]);
 
@@ -134,6 +158,7 @@ export default function SessionView() {
   const [code, setCode] = useState(DEFAULT_CODE["javascript"]);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const modelsLoadedRef = useRef(false);
 
   // Track current state in a ref for Monaco paste handler closure
   const currentStateForPaste = useRef(currentState);
@@ -375,7 +400,10 @@ export default function SessionView() {
   );
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-mono">
+    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans selection:bg-indigo-500/30">
+      {/* Background radial glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.05)_0%,transparent_50%)] pointer-events-none" />
+
       <Overlays
         currentState={currentState}
         isConnected={isConnected}
@@ -462,7 +490,10 @@ export default function SessionView() {
       </div>
 
       {webcamStream && (
-        <div className="absolute bottom-6 right-6 z-[60] overflow-hidden rounded-full border-4 border-slate-700 shadow-[0_0_20px_rgba(0,0,0,0.5)] w-48 h-48 bg-slate-900 pointer-events-none">
+        <div className="absolute bottom-8 right-8 z-[60] overflow-hidden rounded-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(99,102,241,0.1)] w-56 h-40 bg-slate-900 group/webcam transition-all duration-300 hover:scale-105 hover:border-indigo-500/50">
+          <div className="absolute top-3 left-3 z-[61] px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[8px] font-bold text-white tracking-widest opacity-0 group-hover/webcam:opacity-100 transition-opacity uppercase">
+            Active Proctor feed
+          </div>
           <video
             className="w-full h-full object-cover transform scale-x-[-1]"
             ref={(node) => {
