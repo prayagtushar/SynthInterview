@@ -1,15 +1,38 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScorecardData } from "../../lib/types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface ScorecardViewProps {
   scorecard: ScorecardData | null;
   currentState: string;
+  sessionId: string;
 }
 
 export const ScorecardView: React.FC<ScorecardViewProps> = ({
   scorecard,
   currentState,
+  sessionId,
 }) => {
+  const [reviewRequested, setReviewRequested] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+
+  const requestHumanReview = async () => {
+    setReviewLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${sessionId}/request-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) setReviewRequested(true);
+    } catch {
+      // silent fail — user can retry
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-6">
       {scorecard ? (
@@ -122,6 +145,21 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
           <p className="text-[9px] text-gray-700 text-center">
             Scorecard emailed to candidate.
           </p>
+
+          {/* Request Human Review */}
+          {!reviewRequested ? (
+            <button
+              onClick={requestHumanReview}
+              disabled={reviewLoading}
+              className="w-full py-2.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[10px] font-semibold uppercase tracking-widest transition-colors disabled:opacity-50"
+            >
+              {reviewLoading ? "Requesting..." : "Request Human Review"}
+            </button>
+          ) : (
+            <p className="text-[10px] text-emerald-400 text-center">
+              ✓ Human review requested — recruiter notified.
+            </p>
+          )}
         </>
       ) : (
         <>

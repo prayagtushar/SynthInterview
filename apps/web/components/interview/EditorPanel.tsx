@@ -1,11 +1,18 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { type OnMount } from "@monaco-editor/react";
-import { Hash, Keyboard, Play, Loader2 } from "lucide-react";
+import {
+  Hash,
+  Keyboard,
+  Play,
+  Loader2,
+  Sparkles,
+  Terminal as TerminalIcon,
+} from "lucide-react";
 import { LANGUAGES } from "../../lib/constants";
-import { RunResult, ExecResult } from "../../lib/types";
+import { RunResult } from "../../lib/types";
 import { LanguageSelector } from "./LanguageSelector";
-import { Terminal } from "./TerminalPanel";
+import { TestCasesPanel } from "./TestCasesPanel";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -14,6 +21,7 @@ interface EditorPanelProps {
   code: string;
   setCode: (code: string) => void;
   sendCode: (code: string) => void;
+  onTyping: () => void;
   handleEditorMount: OnMount;
   currentLang: (typeof LANGUAGES)[number];
   lineCount: number;
@@ -26,9 +34,7 @@ interface EditorPanelProps {
   showTerminal: boolean;
   setShowTerminal: (show: boolean) => void;
   runResult: RunResult | null;
-  setRunResult: (res: RunResult | null) => void;
-  execResult: ExecResult | null;
-  setExecResult: (res: ExecResult | null) => void;
+  structuredTests: any[];
   showLangMenu: boolean;
   setShowLangMenu: (show: boolean) => void;
   switchLanguage: (langId: string) => void;
@@ -39,6 +45,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   code,
   setCode,
   sendCode,
+  onTyping,
   handleEditorMount,
   currentLang,
   lineCount,
@@ -51,18 +58,16 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   showTerminal,
   setShowTerminal,
   runResult,
-  setRunResult,
-  execResult,
-  setExecResult,
+  structuredTests,
   showLangMenu,
   setShowLangMenu,
   switchLanguage,
 }) => {
   return (
-    <div className="flex-[3] min-w-0 border-r border-indigo-500/20 flex flex-col bg-slate-950">
+    <div className="flex-[3] min-w-0 border-r border-white/5 flex flex-col bg-[#050505] relative group">
       {/* Editor Toolbar */}
-      <div className="h-9 flex items-center justify-between px-3 border-b border-indigo-500/20 bg-slate-900 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="h-10 flex items-center justify-between px-4 border-b border-white/5 bg-slate-900/40 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-3">
           <LanguageSelector
             currentLang={currentLang}
             showLangMenu={showLangMenu}
@@ -71,63 +76,47 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             language={language}
           />
 
-          <div className="h-3 w-px bg-white/5" />
+          <div className="h-3 w-px bg-white/10" />
 
-          {/* File name */}
-          <span className="text-[10px] text-gray-500 font-medium">
-            solution{currentLang.ext}
-          </span>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/5">
+            <span className="text-[10px] text-slate-400 font-bold tracking-tight">
+              solution<span className="text-white">{currentLang.ext}</span>
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Code stats */}
-          <div className="flex items-center gap-2 text-[9px] text-gray-600 font-medium">
-            <span className="flex items-center gap-1">
-              <Hash size={9} />
-              {lineCount} lines
-            </span>
-            <span>{charCount} chars</span>
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono">
+            <div className="text-indigo-400/80">
+              Ln {cursorPosition.line}, Col {cursorPosition.col}
+            </div>
           </div>
 
-          <div className="h-3 w-px bg-white/5" />
-
-          {/* Cursor position */}
-          <span className="text-[9px] text-gray-500 font-mono">
-            Ln {cursorPosition.line}, Col {cursorPosition.col}
-          </span>
-
-          {/* Keyboard shortcuts hint */}
-          {isConnected && currentState === "CODING" && (
-            <div className="flex items-center gap-1.5 text-[9px] text-gray-600">
-              <Keyboard size={9} />
-              <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/5 text-[8px] font-mono text-gray-500">
-                H
-              </kbd>
-              <span>Hint</span>
-            </div>
-          )}
-
-          <div className="h-3 w-px bg-white/5 mx-1" />
-
-          {/* Run Code Button */}
-          <button
-            onClick={runCode}
-            disabled={isRunning}
-            className="flex items-center gap-1.5 bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-green-400 text-[10px] font-medium px-2.5 py-1 rounded transition-colors group"
-          >
-            {isRunning ? (
-              <Loader2 size={10} className="animate-spin" />
-            ) : (
-              <Play size={10} className="group-hover:text-green-300" />
-            )}
-            {isRunning ? "Running…" : "Run Code"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={runCode}
+              disabled={isRunning || !isConnected}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 outline-none
+                ${
+                  isRunning
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 active:scale-95 shadow-[0_0_15px_rgba(16,185,129,0.05)]"
+                }`}
+            >
+              {isRunning ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Play size={12} fill="currentColor" className="opacity-80" />
+              )}
+              {isRunning ? "Running" : "Execution"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Editor + Terminal split container */}
-      <div className="flex-1 min-h-0 flex flex-col relative">
-        <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-purple-500/20 to-transparent pointer-events-none z-10" />
+      {/* Main Body */}
+      <div className="flex-1 min-h-0 flex flex-col relative bg-[#030303]">
+        <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-transparent via-indigo-500/10 to-transparent pointer-events-none z-10" />
 
         <div className={showTerminal ? "flex-1 min-h-0" : "h-full"}>
           <Editor
@@ -139,19 +128,22 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               const newCode = val || "";
               setCode(newCode);
               sendCode(newCode);
+              onTyping();
             }}
-            onMount={handleEditorMount}
+            onMount={(editor, monaco) => {
+              handleEditorMount(editor, monaco);
+              // Set custom theme colors if needed (monaco handles it via defineTheme usually)
+            }}
             options={{
-              fontSize: 14,
+              fontSize: 15,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
-              padding: { top: 16, bottom: 16 },
-              fontFamily:
-                '"JetBrains Mono", "Fira Code", Menlo, Monaco, monospace',
+              padding: { top: 20, bottom: 20 },
+              fontFamily: '"JetBrains Mono", "Fira Code", monospace',
               fontLigatures: true,
               lineNumbers: "on",
-              renderLineHighlight: "line",
-              cursorBlinking: "smooth",
+              renderLineHighlight: "all",
+              cursorBlinking: "expand",
               cursorSmoothCaretAnimation: "on",
               smoothScrolling: true,
               bracketPairColorization: { enabled: true },
@@ -160,30 +152,35 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               autoIndent: "full",
               formatOnPaste: true,
               renderWhitespace: "selection",
-              glyphMargin: false,
               folding: true,
-              lineDecorationsWidth: 8,
+              lineDecorationsWidth: 10,
               lineNumbersMinChars: 3,
               quickSuggestions: false,
               suggestOnTriggerCharacters: false,
               wordBasedSuggestions: "off",
               parameterHints: { enabled: false },
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              scrollbar: {
+                vertical: "visible",
+                horizontal: "hidden",
+                useShadows: false,
+                verticalHasArrows: false,
+                horizontalHasArrows: false,
+                verticalScrollbarSize: 10,
+              },
             }}
           />
         </div>
 
-        {/* Terminal output panel */}
+        {/* Test Cases Panel */}
         {showTerminal && (
-          <Terminal
+          <TestCasesPanel
+            structuredTests={structuredTests}
             runResult={runResult}
-            execResult={execResult}
             isRunning={isRunning}
+            runCode={runCode}
             onClose={() => setShowTerminal(false)}
-            onClear={() => {
-              setShowTerminal(false);
-              setExecResult(null);
-              setRunResult(null);
-            }}
           />
         )}
       </div>
