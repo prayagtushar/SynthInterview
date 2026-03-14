@@ -29,6 +29,7 @@ async def generate_scorecard(
     phase_durations: Optional[dict],
     tab_switch_count: int,
     conversation_summary: str,
+    model_id: str,
 ) -> dict:
     """Generates scorecard using Gemini."""
     hint_deduction = _HINT_DEDUCTIONS.get(min(hint_index, 3), 30)
@@ -48,7 +49,7 @@ async def generate_scorecard(
         difficulty=session_data.get("difficulty", "Medium"),
     )
 
-    raw = await _call_gemini(prompt)
+    raw = await _call_gemini(prompt, model_id=model_id)
     if raw is None:
         return _fallback_scorecard(hint_deduction, test_passed, test_total)
 
@@ -136,14 +137,14 @@ Scoring guidelines:
 
 # ── Gemini caller ─────────────────────────────────────────────────────────────
 
-async def _call_gemini(prompt: str) -> Optional[str]:
+async def _call_gemini(prompt: str, model_id: str) -> Optional[str]:
     try:
         from google import genai
         from google.genai import types
 
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=model_id,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.3,

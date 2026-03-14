@@ -63,6 +63,7 @@ export function useInterview(sessionId: string = "default-session") {
   const beforeUnloadRef = useRef<(() => void) | null>(null);
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const vadSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const noFaceStartTimeRef = useRef<number | null>(null);
 
   const { playAudio, stopPlayback } = useAudioPlayback();
   const currentStateRef = useRef(currentState);
@@ -231,7 +232,7 @@ export function useInterview(sessionId: string = "default-session") {
         if (data.metadata?.cheat_reason)
           setViolationReason(data.metadata.cheat_reason);
         if (
-          data.payload === "COMPLETED" &&
+          (data.payload === "COMPLETED" || data.payload === "TERMINATED") &&
           (data.metadata?.terminated_for_cheating ||
             data.metadata?.terminated_screen_loss)
         ) {
