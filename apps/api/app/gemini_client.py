@@ -33,6 +33,7 @@ class GeminiLiveClient:
                     silenceDurationMs=300,
                 )
             ),
+            tools=tools,
         )
         self._session_ctx = self.client.aio.live.connect(model=self.model_id, config=config)
         self.session = await self._session_ctx.__aenter__()
