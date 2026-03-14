@@ -19,6 +19,7 @@ interface RightPanelProps {
   feedbackRef: React.RefObject<HTMLDivElement | null>;
   scorecard: ScorecardData | null;
   currentState: string;
+  sessionId: string;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -34,6 +35,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   feedbackRef,
   scorecard,
   currentState,
+  sessionId,
 }) => {
   return (
     <div className="w-[340px] flex flex-col bg-slate-950 shrink-0 border-l border-white/5 relative z-10">
@@ -111,19 +113,17 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         </div>
       )}
 
-      {/* Main Container */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {activeTab === "feedback" ? (
-          <FeedbackList
-            feedback={feedback}
-            feedbackRef={feedbackRef}
-            isConnected={isConnected}
-            isSpeaking={isSpeaking}
-          />
-        ) : (
-          <ScorecardView scorecard={scorecard} currentState={currentState} />
-        )}
-      </div>
+      {/* Feedback / Scorecard Content */}
+      {activeTab === "feedback" ? (
+        <FeedbackList
+          feedback={feedback}
+          feedbackRef={feedbackRef}
+          isConnected={isConnected}
+          isSpeaking={isSpeaking}
+        />
+      ) : (
+        <ScorecardView scorecard={scorecard} currentState={currentState} sessionId={sessionId} />
+      )}
 
       <div className="p-4 bg-slate-900/30 border-t border-white/5 shrink-0">
         <ProgressFooter currentState={currentState} />

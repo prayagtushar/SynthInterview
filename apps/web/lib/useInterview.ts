@@ -32,6 +32,7 @@ export function useInterview(sessionId: string = 'default-session') {
 		count: number;
 		max: number;
 	} | null>(null);
+	// Split violations: screen share anomalies vs webcam-based (face/phone/looking away)
 	const [screenViolation, setScreenViolation] = useState<{
 		box_2d: [number, number, number, number];
 		probability: number;
@@ -51,10 +52,12 @@ export function useInterview(sessionId: string = 'default-session') {
 	const [greetingDone, setGreetingDone] = useState(false);
 	const [isMuted, setIsMuted] = useState(false);
 	const [questionData, setQuestionData] = useState<QuestionData | null>(null);
-	const [scorecardData, setScorecardData] = useState<ScorecardData | null>(
-		null,
-	);
+	const [scorecardData, setScorecardData] = useState<ScorecardData | null>(null);
 	const [restoredCode, setRestoredCode] = useState<string | null>(null);
+	// Test case state populated on PROBLEM_DELIVERY
+	const [testCases, setTestCases] = useState<any[]>([]);
+	const [structuredTests, setStructuredTests] = useState<any[]>([]);
+	const [questionPattern, setQuestionPattern] = useState<string>('');
 
 	const socketRef = useRef<WebSocket | null>(null);
 	const isSpeakingRef = useRef(false);
@@ -133,6 +136,7 @@ export function useInterview(sessionId: string = 'default-session') {
 				}, 400);
 			}
 		},
+		// source distinguishes 'screen' vs 'webcam' frames for backend routing
 		onFrameData: (b64, source) => send({ type: 'frame', payload: b64, source }),
 		onScreenLost: (pending) => {
 			setScreenLost(true);
@@ -200,6 +204,9 @@ export function useInterview(sessionId: string = 'default-session') {
 		setQuestionData(null);
 		setScorecardData(null);
 		setGreetingDone(false);
+		setTestCases([]);
+		setStructuredTests([]);
+		setQuestionPattern('');
 		setIsMuted(false);
 		isMutedRef.current = false;
 		setResetKey((k) => k + 1);
@@ -232,6 +239,7 @@ export function useInterview(sessionId: string = 'default-session') {
 			if (data.type === 'text') {
 				setFeedback((prev) => [...prev, data.payload]);
 			} else if (data.type === 'state_update') {
+				// Only call stopPlayback when state actually changes
 				if (data.payload !== currentStateRef.current) {
 					stopPlayback();
 					currentStateRef.current = data.payload;
@@ -252,6 +260,14 @@ export function useInterview(sessionId: string = 'default-session') {
 				}
 				if (data.payload === 'SCREEN_NOT_VISIBLE') setScreenLost(true);
 				if (data.metadata?.question) setQuestionData(data.metadata.question);
+				// Populate test cases on every PROBLEM_DELIVERY (multi-question support)
+				if (data.payload === 'PROBLEM_DELIVERY' && data.metadata) {
+					const q = data.metadata.question || {};
+					setTestCases(q.testCases || []);
+					setStructuredTests(q.structuredTests || []);
+					setQuestionPattern(q.pattern || '');
+				}
+				// Route violation to screen or webcam bucket based on source
 				if (data.violation !== undefined) {
 					const violationData = data.violation
 						? {
@@ -260,7 +276,6 @@ export function useInterview(sessionId: string = 'default-session') {
 								reason: data.violation.reason,
 						  }
 						: null;
-
 					if (data.is_webcam) {
 						setWebcamViolation(violationData);
 					} else {
@@ -284,6 +299,7 @@ export function useInterview(sessionId: string = 'default-session') {
 				setIsSpeaking(true);
 				isSpeakingRef.current = true;
 				setMediaSpeaking(true);
+				setIsUserSpeaking(false); // agent speaking overrides user speaking indicator
 				if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
 				speakingTimerRef.current = setTimeout(() => {
 					setIsSpeaking(false);
@@ -326,11 +342,7 @@ export function useInterview(sessionId: string = 'default-session') {
 		stopMedia();
 		stopMonitoring();
 		setIsConnected(false);
-		if (currentState !== 'COMPLETED' && currentState !== 'TERMINATED') {
-			stopMedia();
-			stopMonitoring();
-		}
-	}, [currentState, stopMedia, stopMonitoring]);
+	}, [stopMedia, stopMonitoring]);
 
 	const acquireAndStartMedia = useCallback(async () => {
 		const streams = await acquireMediaStreams();
@@ -361,6 +373,9 @@ export function useInterview(sessionId: string = 'default-session') {
 		webcamViolation,
 		sessionBlocked,
 		restoredCode,
+		testCases,
+		structuredTests,
+		questionPattern,
 		isListening: isConnected && !isSpeaking,
 		connect,
 		disconnect,

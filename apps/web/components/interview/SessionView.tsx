@@ -17,9 +17,8 @@ import {
 	STATE_ICONS,
 	MANUAL_TRANSITIONS,
 } from '../../lib/constants';
-import { ScorecardData, RunResult, ExecResult } from '../../lib/types';
+import { ScorecardData, RunResult } from '../../lib/types';
 import { generateProblemComments } from '../../lib/interviewUtils';
-// Face detection is handled in useMedia hook
 
 // Sub-components
 import { Sidebar } from './Sidebar';
@@ -54,6 +53,9 @@ export default function SessionView() {
 		webcamViolation,
 		sessionBlocked,
 		restoredCode,
+		testCases,
+		structuredTests,
+		questionPattern,
 		connect,
 		disconnect,
 		sendEvent,
@@ -80,7 +82,6 @@ export default function SessionView() {
 		};
 
 		const handleMouseLeave = (e: MouseEvent) => {
-			// If mouse leaves the top boundary, suspect they're checking another monitor or browser UI
 			if (
 				e.clientY <= 0 ||
 				e.clientX <= 0 ||
@@ -96,9 +97,7 @@ export default function SessionView() {
 		};
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// If they type text while the document doesn't have focus, they're typing in another window
 			if (!document.hasFocus() && e.key.length === 1) {
-				// e.key.length === 1 catches standard character typings
 				if (currentState === 'CODING' || currentState === 'THINK_TIME') {
 					sendEvent('cheating_attempt', {
 						reason: 'Typing detected outside of interview window bounds',
@@ -131,12 +130,11 @@ export default function SessionView() {
 		if (resetKey === 0) return; // skip initial mount
 		setCode(DEFAULT_CODE['javascript']);
 		setLanguage('javascript');
-		setExecResult(null);
 		setRunResult(null);
 		setShowTerminal(false);
 		setScorecard(null);
 		setActiveTab('feedback');
-		problemInjected.current = false;
+		lastInjectedQuestionId.current = null;
 		problemHeaderLines.current = 0;
 	}, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -166,11 +164,12 @@ export default function SessionView() {
 	const currentStateForPaste = useRef(currentState);
 	const editorRef = useRef<any>(null);
 	const problemHeaderLines = useRef(0); // number of read-only problem comment lines
-	const problemInjected = useRef(false); // prevent double injection
+	const lastInjectedQuestionId = useRef<string | null>(null); // track which question was injected
+	const typingSignalTimer = useRef<NodeJS.Timeout | null>(null); // debounce typing signals
+	const isInjecting = useRef(false); // true while programmatic code injection is in flight
 
 	// Code execution state
 	const [isRunning, setIsRunning] = useState(false);
-	const [execResult, setExecResult] = useState<ExecResult | null>(null);
 	const [runResult, setRunResult] = useState<RunResult | null>(null);
 	const [showTerminal, setShowTerminal] = useState(false);
 	const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
@@ -187,35 +186,46 @@ export default function SessionView() {
 		}
 	}, [feedback]);
 
-	const {
-		stateColor,
-		stateIcon,
-		transitions,
-		currentLang,
-		lineCount,
-		charCount,
-	} = useMemo(
-		() => ({
-			stateColor: STATE_COLORS[currentState] || 'bg-gray-800 text-gray-400',
-			stateIcon: STATE_ICONS[currentState] || STATE_ICONS.IDLE,
-			transitions: MANUAL_TRANSITIONS[currentState] || [],
-			currentLang: LANGUAGES.find((l) => l.id === language) || LANGUAGES[0],
-			lineCount: code.split('\n').length,
-			charCount: code.length,
-		}),
-		[currentState, language, code],
-	);
+	const { stateColor, stateIcon, transitions, currentLang, lineCount, charCount } =
+		useMemo(
+			() => ({
+				stateColor: STATE_COLORS[currentState] || 'bg-gray-800 text-gray-400',
+				stateIcon: STATE_ICONS[currentState] || STATE_ICONS.IDLE,
+				transitions: MANUAL_TRANSITIONS[currentState] || [],
+				currentLang: LANGUAGES.find((l) => l.id === language) || LANGUAGES[0],
+				lineCount: code.split('\n').length,
+				charCount: code.length,
+			}),
+			[currentState, language, code],
+		);
+
+	// Debounced typing signal — resets silence timer in agent (no agent speech)
+	const handleTyping = useCallback(() => {
+		if (!isConnected) return;
+		if (typingSignalTimer.current) return; // already debounced
+		typingSignalTimer.current = setTimeout(() => {
+			sendEvent('candidate_signal', { signal: 'typing' });
+			typingSignalTimer.current = null;
+		}, 2000); // send once per 2s of typing activity
+	}, [isConnected, sendEvent]);
 
 	// Language switching handler
 	const switchLanguage = useCallback(
 		(langId: string) => {
 			setLanguage(langId);
 			// Re-generate code with problem header if question was already injected
-			if (problemInjected.current && questionData) {
+			if (lastInjectedQuestionId.current && questionData) {
 				const header = generateProblemComments(questionData, langId);
-				const defaultBody = DEFAULT_CODE[langId] || '';
-				setCode(header + '\n' + defaultBody);
+				const starterCode =
+					(questionData as any).starterCode?.[langId] ||
+					DEFAULT_CODE[langId] ||
+					'';
+				isInjecting.current = true;
+				setCode(header + starterCode);
 				problemHeaderLines.current = header.split('\n').length;
+				setTimeout(() => {
+					isInjecting.current = false;
+				}, 200);
 			} else {
 				setCode(DEFAULT_CODE[langId] || '');
 			}
@@ -231,7 +241,6 @@ export default function SessionView() {
 		setIsRunning(true);
 		setShowTerminal(true);
 		setRunResult(null);
-		setExecResult(null);
 		const t0 = Date.now();
 
 		try {
@@ -265,10 +274,11 @@ export default function SessionView() {
 				sendEvent('candidate_signal', { signal: summary });
 			}
 		} catch (err) {
-			setExecResult({
-				stdout: '',
-				stderr: err instanceof Error ? err.message : 'Unknown execution error',
-				exitCode: -1,
+			setRunResult({
+				passed: 0,
+				total: 0,
+				results: [],
+				error: err instanceof Error ? err.message : 'Unknown execution error',
 				execTime: Date.now() - t0,
 			});
 		} finally {
@@ -276,34 +286,35 @@ export default function SessionView() {
 		}
 	}, [code, language, sessionId, isConnected, sendEvent, API_BASE]);
 
-	// Inject problem into editor when PROBLEM_DELIVERY state is reached
+	// Inject problem into editor when PROBLEM_DELIVERY state is reached (or new question)
 	useEffect(() => {
-		if (
-			currentState !== 'PROBLEM_DELIVERY' ||
-			!questionData ||
-			problemInjected.current
-		)
-			return;
-		problemInjected.current = true;
+		if (currentState !== 'PROBLEM_DELIVERY' || !questionData) return;
+		// Use question ID to detect transitions between questions
+		const qid = (questionData as any).id || questionData.title;
+		if (lastInjectedQuestionId.current === qid) return; // already injected this question
+		lastInjectedQuestionId.current = qid;
 
 		const header = generateProblemComments(questionData, language);
-		const existingCode = DEFAULT_CODE[language] || '';
-		const fullCode = header + existingCode;
+		const starterCode =
+			(questionData as any).starterCode?.[language] ||
+			DEFAULT_CODE[language] ||
+			'';
+		const fullCode = header + starterCode;
+		// Mark injection in progress so onDidChangeModelContent doesn't undo it
+		isInjecting.current = true;
 		setCode(fullCode);
 		problemHeaderLines.current = header.split('\n').length;
+		setRunResult(null);
 
-		// Apply read-only constraint after Monaco updates
+		// Reset injection flag and position cursor after Monaco processes the change
 		setTimeout(() => {
+			isInjecting.current = false;
 			const editor = editorRef.current;
 			if (!editor) return;
-			const model = editor.getModel();
-			if (!model) return;
-
 			const editableStartLine = problemHeaderLines.current + 1;
-			// Position cursor at the start of editable area
 			editor.setPosition({ lineNumber: editableStartLine, column: 1 });
 			editor.revealLineInCenter(editableStartLine);
-		}, 100);
+		}, 200);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentState, questionData, language]);
 
@@ -353,14 +364,30 @@ export default function SessionView() {
 				});
 			});
 
-			// Track copy events to prevent false paste-cheating alerts
+			// Protected signature: undo edits in the header region
+			// isInjecting.current is set when code is injected programmatically — skip the guard then
+			editor.onDidChangeModelContent((e: any) => {
+				if (isInjecting.current) return; // programmatic injection — never undo
+				if (problemHeaderLines.current === 0) return;
+				for (const change of e.changes) {
+					if (change.range.startLineNumber <= problemHeaderLines.current) {
+						editor.trigger('keyboard', 'undo', null);
+						console.warn('[Editor] Function signature is read-only.');
+						break;
+					}
+				}
+			});
+
+			// Track large pastes as silent cheat events (no agent prompt)
 			editor.onDidPaste((e: any) => {
-				if (currentStateForPaste.current !== 'CODING') return;
 				const pastedText = editor.getModel()?.getValueInRange(e.range) ?? '';
-				if (pastedText.length > 50) {
+				if (pastedText.length > 100) {
 					const lastCopied = getLastCopied();
-					if (lastCopied && pastedText === lastCopied) return;
-					sendEvent('large_paste', { length: pastedText.length });
+					if (lastCopied && pastedText === lastCopied) return; // own copy, not external
+					sendEvent('candidate_signal', {
+						signal: 'paste',
+						charCount: pastedText.length,
+					});
 				}
 			});
 
@@ -455,6 +482,7 @@ export default function SessionView() {
 						code={code}
 						setCode={setCode}
 						sendCode={sendCode}
+						onTyping={handleTyping}
 						handleEditorMount={handleEditorMount}
 						currentLang={currentLang}
 						lineCount={lineCount}
@@ -467,9 +495,7 @@ export default function SessionView() {
 						showTerminal={showTerminal}
 						setShowTerminal={setShowTerminal}
 						runResult={runResult}
-						setRunResult={setRunResult}
-						execResult={execResult}
-						setExecResult={setExecResult}
+						structuredTests={structuredTests}
 						showLangMenu={showLangMenu}
 						setShowLangMenu={setShowLangMenu}
 						switchLanguage={switchLanguage}
@@ -488,6 +514,7 @@ export default function SessionView() {
 						feedbackRef={feedbackRef}
 						scorecard={scorecard}
 						currentState={currentState}
+						sessionId={sessionId}
 					/>
 				</div>
 			</div>

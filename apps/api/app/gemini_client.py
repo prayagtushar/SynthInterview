@@ -222,8 +222,7 @@ class GeminiLiveClient:
                         # Signal that it's safe to send the next text turn
                         self._turn_complete.set()
                         yield {"type": "turn_complete"}
-                if not had_data:
-                    return
+                # Don't exit on empty batch — keep listening for next turn
             except asyncio.CancelledError:
                 return
             except Exception as e:

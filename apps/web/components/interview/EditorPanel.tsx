@@ -10,9 +10,9 @@ import {
   Terminal as TerminalIcon,
 } from "lucide-react";
 import { LANGUAGES } from "../../lib/constants";
-import { RunResult, ExecResult } from "../../lib/types";
+import { RunResult } from "../../lib/types";
 import { LanguageSelector } from "./LanguageSelector";
-import { Terminal } from "./TerminalPanel";
+import { TestCasesPanel } from "./TestCasesPanel";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -21,6 +21,7 @@ interface EditorPanelProps {
   code: string;
   setCode: (code: string) => void;
   sendCode: (code: string) => void;
+  onTyping: () => void;
   handleEditorMount: OnMount;
   currentLang: (typeof LANGUAGES)[number];
   lineCount: number;
@@ -33,9 +34,7 @@ interface EditorPanelProps {
   showTerminal: boolean;
   setShowTerminal: (show: boolean) => void;
   runResult: RunResult | null;
-  setRunResult: (res: RunResult | null) => void;
-  execResult: ExecResult | null;
-  setExecResult: (res: ExecResult | null) => void;
+  structuredTests: any[];
   showLangMenu: boolean;
   setShowLangMenu: (show: boolean) => void;
   switchLanguage: (langId: string) => void;
@@ -46,6 +45,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   code,
   setCode,
   sendCode,
+  onTyping,
   handleEditorMount,
   currentLang,
   lineCount,
@@ -58,9 +58,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   showTerminal,
   setShowTerminal,
   runResult,
-  setRunResult,
-  execResult,
-  setExecResult,
+  structuredTests,
   showLangMenu,
   setShowLangMenu,
   switchLanguage,
@@ -130,6 +128,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               const newCode = val || "";
               setCode(newCode);
               sendCode(newCode);
+              onTyping();
             }}
             onMount={(editor, monaco) => {
               handleEditorMount(editor, monaco);
@@ -174,32 +173,15 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           />
         </div>
 
-        {/* Terminal output panel */}
+        {/* Test Cases Panel */}
         {showTerminal && (
-          <div className="animate-in slide-in-from-bottom duration-300">
-            <Terminal
-              runResult={runResult}
-              execResult={execResult}
-              isRunning={isRunning}
-              onClose={() => setShowTerminal(false)}
-              onClear={() => {
-                setShowTerminal(false);
-                setExecResult(null);
-                setRunResult(null);
-              }}
-            />
-          </div>
-        )}
-
-        {/* Toggle Terminal Floating Trigger (if hidden) */}
-        {!showTerminal && isConnected && (execResult || runResult) && (
-          <button
-            onClick={() => setShowTerminal(true)}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-slate-900/90 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:text-white hover:border-indigo-500/30 transition-all flex items-center gap-2 z-30 shadow-2xl backdrop-blur-md"
-          >
-            <TerminalIcon size={12} className="text-indigo-400" />
-            Restore Test Results
-          </button>
+          <TestCasesPanel
+            structuredTests={structuredTests}
+            runResult={runResult}
+            isRunning={isRunning}
+            runCode={runCode}
+            onClose={() => setShowTerminal(false)}
+          />
         )}
       </div>
     </div>

@@ -30,6 +30,7 @@ async def generate_scorecard(
     tab_switch_count: int,
     conversation_summary: str,
     model_id: str,
+    cheat_events: Optional[list] = None,
 ) -> dict:
     """Generates scorecard using Gemini."""
     hint_deduction = _HINT_DEDUCTIONS.get(min(hint_index, 3), 30)
@@ -47,6 +48,7 @@ async def generate_scorecard(
         tab_switch_count=tab_switch_count,
         conversation_summary=conversation_summary,
         difficulty=session_data.get("difficulty", "Medium"),
+        cheat_events=cheat_events or [],
     )
 
     raw = await _call_gemini(prompt, model_id=model_id)
@@ -69,6 +71,7 @@ def _build_prompt(
     tab_switch_count: int,
     conversation_summary: str,
     difficulty: str,
+    cheat_events: Optional[list] = None,
 ) -> str:
     code_snippet = final_code[-2000:] if len(final_code) > 2000 else final_code
     phases_text = "\n".join(f"  - {k}: {v:.0f}s" for k, v in phase_durations.items()) or "  (not available)"
@@ -78,9 +81,27 @@ def _build_prompt(
         if hint_index > 0 else "No hints used"
     )
 
-    return f"""You are an expert technical interviewer evaluating a candidate's performance.
+    # Build integrity flags section
+    integrity_lines = []
+    if tab_switch_count > 0:
+        integrity_lines.append(f"- Tab switches: {tab_switch_count}")
+    if cheat_events:
+        large_pastes = [e for e in cheat_events if e.get("type") == "large_paste"]
+        if large_pastes:
+            paste_details = ", ".join(
+                f"{e.get('detail', {}).get('char_count', '?')} chars" for e in large_pastes
+            )
+            integrity_lines.append(f"- Large paste events: {len(large_pastes)} ({paste_details})")
+        other_events = [e for e in cheat_events if e.get("type") not in ("large_paste", "tab_switch")]
+        for e in other_events:
+            integrity_lines.append(f"- {e.get('type', 'unknown')}: {e.get('detail', '')}")
+
+    integrity_text = "\n".join(integrity_lines) if integrity_lines else "  None detected"
+
+    return f"""You are an expert senior technical interviewer evaluating a DSA coding interview candidate.
 
 QUESTION: {question.get('title', 'Unknown')} (Difficulty: {difficulty})
+PATTERN: {question.get('pattern', 'N/A')}
 DESCRIPTION: {question.get('description', '')[:400]}
 OPTIMAL: Time {question.get('optimalTimeComplexity', 'N/A')}, Space {question.get('optimalSpaceComplexity', 'N/A')}
 
@@ -92,16 +113,19 @@ CANDIDATE FINAL CODE ({len(final_code)} chars):
 INTERVIEW METRICS:
 - Test cases: {test_summary}
 - Hints used: {hints_text}
-- Tab switches: {tab_switch_count}
 - Phase durations:
 {phases_text}
+
+INTEGRITY FLAGS:
+{integrity_text}
 
 INTERVIEW CONVERSATION SUMMARY:
 {conversation_summary or "Not available"}
 
 YOUR TASK:
 Score the candidate on each dimension from 0–100. Apply the hint deduction to the approach score.
-Be fair but rigorous. Return ONLY valid JSON with this exact structure:
+Be a fair but rigorous senior engineer reviewer. Focus on thought process and logic, not minor syntax errors.
+Return ONLY valid JSON with this exact structure:
 
 {{
   "scores": {{
@@ -120,18 +144,21 @@ Be fair but rigorous. Return ONLY valid JSON with this exact structure:
     "correctness": "<1-2 sentence specific feedback>",
     "time_management": "<1-2 sentence specific feedback>"
   }},
-  "feedback": "<3-4 sentence overall assessment. Mention strengths, areas for improvement, and one specific actionable suggestion>",
+  "feedback": "<3-4 sentence overall narrative assessment. Mention: (1) strengths observed, (2) areas for improvement, (3) whether they recognized the {question.get('pattern', 'algorithmic')} pattern, (4) one actionable suggestion>",
   "improvement_areas": ["<topic1>", "<topic2>", "<topic3>"],
-  "strengths": ["<strength1>", "<strength2>"]
+  "strengths": ["<strength1>", "<strength2>"],
+  "integrity_note": "<empty string if no flags, otherwise a factual note about detected events e.g. '2 large paste events detected'>"
 }}
 
 Scoring guidelines:
-- problem_understanding: Did they identify edge cases? Ask good clarifying questions?
-- approach: Was their algorithm correct? Optimal? Reduce by {hint_deduction}% for hints.
-- communication: Did they explain their thinking clearly? Respond well to questions?
-- code_quality: Clean code, naming, readability, structure (0 hints expected in this dimension)
-- correctness: Based on test results ({test_summary}). If tests not run, infer from code review.
+- problem_understanding: Did they identify edge cases? Ask good clarifying questions? Recognize constraints?
+- approach: Was their algorithm correct and optimal? Did they explain trade-offs? Reduce by {hint_deduction}% for hints used.
+- communication: Did they explain their thinking clearly? Think aloud? Respond well to follow-up questions?
+- code_quality: Clean code, naming, readability, structure. Do NOT penalize minor syntax errors under time pressure.
+- correctness: Based on test results ({test_summary}). If tests not run, infer from code review. Validate logic, not just output matching.
 - time_management: Was time distributed reasonably across phases?
+
+IMPORTANT: If the candidate used a creative or unconventional but valid algorithm, do NOT mark it wrong — validate the logic.
 """
 
 
@@ -187,6 +214,7 @@ def _parse_scorecard(raw: str, hint_deduction: int) -> dict:
             "dimension_feedback": data.get("dimension_feedback", {}),
             "improvement_areas": data.get("improvement_areas", []),
             "strengths": data.get("strengths", []),
+            "integrity_note": data.get("integrity_note", ""),
         }
     except Exception as e:
         logger.error("Failed to parse scorecard JSON: %s\nRaw: %s", e, raw[:300])
