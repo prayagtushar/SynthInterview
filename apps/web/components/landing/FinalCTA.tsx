@@ -2,7 +2,14 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, UserCheck, Terminal, Lock, Activity, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  UserCheck,
+  Terminal,
+  Lock,
+  Activity,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/context/AuthContext";
@@ -23,7 +30,8 @@ export default function FinalCTA() {
   const { role, isDemoMode } = useAuth();
   const router = useRouter();
   const isAdmin = role === "admin";
-  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
+  const hasRecruiterAccess =
+    isDemoMode || role === "recruiter" || role === "admin";
 
   return (
     <section className="section-container bg-[#030303] border-t border-white/5 py-32 md:py-48 overflow-hidden">
@@ -147,8 +155,7 @@ export default function FinalCTA() {
                 </p>
               </div>
               <div className="mt-12 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-white/30 transition-colors">
-                Login to Access{" "}
-                <ArrowRight size={14} />
+                Login to Access <ArrowRight size={14} />
               </div>
             </button>
           )}

@@ -2,10 +2,24 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, setDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { motion } from "framer-motion";
-import { CheckCircle2, XCircle, Loader2, Zap, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Zap,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 
 function InviteHandler() {
@@ -13,7 +27,9 @@ function InviteHandler() {
   const router = useRouter();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading",
+  );
   const [message, setMessage] = useState("");
   const [recruiterEmail, setRecruiterEmail] = useState("");
 
@@ -45,9 +61,10 @@ function InviteHandler() {
         return;
       }
 
-      const expiresAt = invite.expiresAt instanceof Timestamp
-        ? invite.expiresAt.toDate()
-        : new Date(invite.expiresAt);
+      const expiresAt =
+        invite.expiresAt instanceof Timestamp
+          ? invite.expiresAt.toDate()
+          : new Date(invite.expiresAt);
 
       if (expiresAt < new Date()) {
         setStatus("error");
@@ -68,8 +85,9 @@ function InviteHandler() {
       setStatus("success");
 
       setTimeout(
-        () => router.replace(`/login?email=${encodeURIComponent(invite.email)}`),
-        3500
+        () =>
+          router.replace(`/login?email=${encodeURIComponent(invite.email)}`),
+        3500,
       );
     } catch {
       setStatus("error");
@@ -110,12 +128,18 @@ function InviteHandler() {
                 </div>
               </div>
               <div className="space-y-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">Validating Signature</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Validating Signature
+                </p>
                 <div className="w-24 h-[1px] bg-zinc-800 mx-auto overflow-hidden rounded-full">
-                  <motion.div 
+                  <motion.div
                     initial={{ x: "-100%" }}
                     animate={{ x: "100%" }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1.5,
+                      ease: "linear",
+                    }}
                     className="w-full h-full bg-zinc-400"
                   />
                 </div>
@@ -129,10 +153,16 @@ function InviteHandler() {
                 <ShieldCheck className="w-8 h-8 text-emerald-500" />
               </div>
               <div className="space-y-6">
-                <h2 className="text-xl font-bold text-white tracking-tight">Access Approved</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  Access Approved
+                </h2>
                 <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2 text-center">Identity Authorized</p>
-                  <p className="font-mono text-xs text-zinc-300 break-all">{recruiterEmail}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2 text-center">
+                    Identity Authorized
+                  </p>
+                  <p className="font-mono text-xs text-zinc-300 break-all">
+                    {recruiterEmail}
+                  </p>
                 </div>
                 <p className="text-[11px] text-emerald-500/50 font-bold uppercase tracking-[0.1em] animate-pulse">
                   Redirecting to Command Center...
@@ -147,7 +177,9 @@ function InviteHandler() {
                 <ShieldAlert className="w-8 h-8 text-red-500" />
               </div>
               <div className="space-y-6">
-                <h2 className="text-xl font-bold text-white tracking-tight">Access Denied</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  Access Denied
+                </h2>
                 <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
                   <p className="text-[13px] text-zinc-500 leading-relaxed font-medium">
                     {message}

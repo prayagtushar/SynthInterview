@@ -76,7 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const roleSnap = await getDoc(doc(db, "roles", email));
-        setRole(roleSnap.exists() && roleSnap.data()?.role === "recruiter" ? "recruiter" : "candidate");
+        setRole(
+          roleSnap.exists() && roleSnap.data()?.role === "recruiter"
+            ? "recruiter"
+            : "candidate",
+        );
       } catch {
         setRole("candidate");
       }
@@ -126,7 +130,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, role, loading, isDemoMode, signInWithGoogle, signOut, activateDemoCode }}
+      value={{
+        user,
+        role,
+        loading,
+        isDemoMode,
+        signInWithGoogle,
+        signOut,
+        activateDemoCode,
+      }}
     >
       {children}
     </AuthContext.Provider>

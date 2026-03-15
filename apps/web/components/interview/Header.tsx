@@ -78,7 +78,9 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="h-6 w-[1px] bg-white/10" />
 
         <div className="flex items-center gap-4">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Status</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
+            Status
+          </div>
           <div
             className={`inline-flex items-center gap-3 px-4 py-1.5 border border-white/10 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${stateColor.replace("rounded-full", "").replace("rounded", "")} bg-white/5`}
           >
@@ -159,8 +161,12 @@ export const Header: React.FC<HeaderProps> = ({
 
           return (
             <div className="flex items-center gap-4 bg-white/[0.02] px-5 py-2 border border-white/5">
-              <div className={`w-1.5 h-1.5 rounded-none transition-all duration-500 ${s.dot}`} />
-              <span className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-500 ${s.text}`}>
+              <div
+                className={`w-1.5 h-1.5 rounded-none transition-all duration-500 ${s.dot}`}
+              />
+              <span
+                className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-500 ${s.text}`}
+              >
                 {s.label}
               </span>
             </div>

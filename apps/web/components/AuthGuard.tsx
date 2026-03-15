@@ -19,7 +19,8 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
     if (!isDemoMode && !user) return false;
     if (!requiredRole) return true;
     if (role === "admin") return true;
-    if (requiredRole === "recruiter" && (role === "recruiter" || isDemoMode)) return true;
+    if (requiredRole === "recruiter" && (role === "recruiter" || isDemoMode))
+      return true;
     return false;
   })();
 

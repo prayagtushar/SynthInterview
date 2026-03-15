@@ -81,7 +81,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             <span className="text-[10px] text-white/40 font-black uppercase tracking-widest group-hover/badge:text-white transition-colors">
               source.
               <span className="text-white group-hover/badge:text-white">
-                {currentLang.ext.replace('.', '')}
+                {currentLang.ext.replace(".", "")}
               </span>
             </span>
           </div>
@@ -90,7 +90,10 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest">
             <div className="text-white/20">
-              POS <span className="text-white/60 ml-1">{cursorPosition.line}:{cursorPosition.col}</span>
+              POS{" "}
+              <span className="text-white/60 ml-1">
+                {cursorPosition.line}:{cursorPosition.col}
+              </span>
             </div>
           </div>
 
@@ -108,10 +111,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               {isRunning ? (
                 <Loader2 size={12} className="animate-spin" />
               ) : (
-                <Play
-                  size={12}
-                  fill="currentColor"
-                />
+                <Play size={12} fill="currentColor" />
               )}
               {isRunning ? "Executing" : "Execute Solution"}
             </button>

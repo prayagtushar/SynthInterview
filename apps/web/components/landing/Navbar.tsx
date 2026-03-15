@@ -11,7 +11,8 @@ export default function Navbar() {
   const { user, role, isDemoMode, loading, signOut } = useAuth();
   const router = useRouter();
   const isAdmin = role === "admin";
-  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
+  const hasRecruiterAccess =
+    isDemoMode || role === "recruiter" || role === "admin";
 
   const handleSignOut = async () => {
     await signOut();

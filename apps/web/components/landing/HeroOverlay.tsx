@@ -1,7 +1,14 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, Sparkles, Terminal, UserCheck, Lock, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  Terminal,
+  UserCheck,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,7 +30,8 @@ export default function HeroOverlay() {
   const { role, isDemoMode } = useAuth();
   const router = useRouter();
   const isAdmin = role === "admin";
-  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
+  const hasRecruiterAccess =
+    isDemoMode || role === "recruiter" || role === "admin";
 
   return (
     <div className="relative isolate overflow-hidden">

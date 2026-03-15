@@ -17,7 +17,7 @@ import {
   Terminal,
   BarChart2,
   RefreshCcw,
-  Orbit
+  Orbit,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -38,11 +38,43 @@ const DSA_CATEGORIES = [
 
 const DIFFICULTY_META: Record<
   string,
-  { label: string; count: number; time: number; color: string; bg: string; border: string; glow: string }
+  {
+    label: string;
+    count: number;
+    time: number;
+    color: string;
+    bg: string;
+    border: string;
+    glow: string;
+  }
 > = {
-  Easy: { label: "Easy", count: 3, time: 45, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", glow: "shadow-[0_0_20px_rgba(16,185,129,0.15)]" },
-  Medium: { label: "Medium", count: 2, time: 45, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", glow: "shadow-[0_0_20px_rgba(245,158,11,0.15)]" },
-  Hard: { label: "Hard", count: 1, time: 60, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", glow: "shadow-[0_0_20px_rgba(239,68,68,0.15)]" },
+  Easy: {
+    label: "Easy",
+    count: 3,
+    time: 45,
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-500/30",
+    glow: "shadow-[0_0_20px_rgba(16,185,129,0.15)]",
+  },
+  Medium: {
+    label: "Medium",
+    count: 2,
+    time: 45,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/30",
+    glow: "shadow-[0_0_20px_rgba(245,158,11,0.15)]",
+  },
+  Hard: {
+    label: "Hard",
+    count: 1,
+    time: 60,
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-500/30",
+    glow: "shadow-[0_0_20px_rgba(239,68,68,0.15)]",
+  },
 };
 
 const fadeUpVariants = {
@@ -60,7 +92,9 @@ const fadeUpVariants = {
 function RecruiterDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">("idle");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">(
+    "idle",
+  );
   const [emailError, setEmailError] = useState<string | null>(null);
 
   const [candidateEmail, setCandidateEmail] = useState("");
@@ -150,8 +184,14 @@ function RecruiterDashboard() {
     <main className="bg-[#030303] min-h-screen flex flex-col relative overflow-hidden text-zinc-100 selection:bg-white/30 selection:text-white">
       {/* Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[60%] bg-violet-600/15 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/15 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
+        <div
+          className="absolute top-[-20%] left-[-10%] w-[50%] h-[60%] bg-violet-600/15 rounded-full blur-[150px] animate-pulse"
+          style={{ animationDuration: "8s" }}
+        />
+        <div
+          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/15 rounded-full blur-[150px] animate-pulse"
+          style={{ animationDuration: "10s", animationDelay: "2s" }}
+        />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black/95" />
       </div>
@@ -163,7 +203,9 @@ function RecruiterDashboard() {
             <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-br from-white to-zinc-300 text-black shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
               <Zap size={18} fill="currentColor" />
             </div>
-            <span className="font-bold text-lg text-white tracking-tight uppercase">SYNTH</span>
+            <span className="font-bold text-lg text-white tracking-tight uppercase">
+              SYNTH
+            </span>
           </Link>
           <div className="px-4 py-1.5 text-xs font-bold text-white/40 rounded-full border border-white/5 bg-white/[0.02] uppercase tracking-widest">
             Recruiter Console
@@ -174,7 +216,6 @@ function RecruiterDashboard() {
       {/* Page Content */}
       <section className="flex-1 flex flex-col justify-center items-center px-6 py-28 relative z-10">
         <div className="w-full max-w-2xl flex flex-col gap-5">
-
           {/* Page Header */}
           <motion.div
             initial="hidden"
@@ -183,13 +224,15 @@ function RecruiterDashboard() {
             className="flex flex-col items-center text-center pb-4"
           >
             <div className="section-badge gap-2 mb-5">
-              <Orbit size={14} className="animate-[spin_4s_linear_infinite]" /> AI Assessment Engine
+              <Orbit size={14} className="animate-[spin_4s_linear_infinite]" />{" "}
+              AI Assessment Engine
             </div>
             <h1 className="section-title text-gradient mb-2">
               Recruiter Console
             </h1>
             <p className="text-white/50 text-base max-w-xs leading-relaxed font-medium">
-              Deploy autonomous AI-driven assessments for your candidates in seconds.
+              Deploy autonomous AI-driven assessments for your candidates in
+              seconds.
             </p>
           </motion.div>
 
@@ -249,10 +292,20 @@ function RecruiterDashboard() {
                                   : "border-white/5 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
                               }`}
                             >
-                              <p className={`font-bold text-base transition-colors ${isActive ? "text-white" : "text-white/60"}`}>{d}</p>
+                              <p
+                                className={`font-bold text-base transition-colors ${isActive ? "text-white" : "text-white/60"}`}
+                              >
+                                {d}
+                              </p>
                               {isActive && (
-                                <motion.div layoutId="diff-active" className="absolute right-4 top-1/2 -translate-y-1/2">
-                                  <CheckCircle2 size={20} className={info.color} />
+                                <motion.div
+                                  layoutId="diff-active"
+                                  className="absolute right-4 top-1/2 -translate-y-1/2"
+                                >
+                                  <CheckCircle2
+                                    size={20}
+                                    className={info.color}
+                                  />
                                 </motion.div>
                               )}
                             </button>
@@ -265,7 +318,9 @@ function RecruiterDashboard() {
                     <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-8 space-y-5 shadow-inner">
                       <div className="flex items-center gap-3">
                         <Code2 className="text-white/40" size={16} />
-                        <h3 className="text-xs font-bold text-white/50 uppercase tracking-widest">Knowledge Domains</h3>
+                        <h3 className="text-xs font-bold text-white/50 uppercase tracking-widest">
+                          Knowledge Domains
+                        </h3>
                       </div>
                       <div className="flex flex-wrap gap-2.5">
                         {DSA_CATEGORIES.map((topic) => (
@@ -289,18 +344,31 @@ function RecruiterDashboard() {
                     <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                       <div className="flex items-center gap-6">
                         <div>
-                          <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-0.5">Questions</p>
-                          <p className="text-2xl font-bold text-white">{meta.count}</p>
+                          <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-0.5">
+                            Questions
+                          </p>
+                          <p className="text-2xl font-bold text-white">
+                            {meta.count}
+                          </p>
                         </div>
                         <div className="w-px h-10 bg-white/5" />
                         <div>
-                          <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-0.5">Duration</p>
-                          <p className="text-2xl font-bold text-white">{meta.time}<span className="text-sm text-white/30 font-medium ml-1">min</span></p>
+                          <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-0.5">
+                            Duration
+                          </p>
+                          <p className="text-2xl font-bold text-white">
+                            {meta.time}
+                            <span className="text-sm text-white/30 font-medium ml-1">
+                              min
+                            </span>
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Engine Ready</span>
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                          Engine Ready
+                        </span>
                       </div>
                     </div>
 
@@ -314,7 +382,9 @@ function RecruiterDashboard() {
                         {isLoading ? (
                           <RefreshCcw size={18} className="animate-spin" />
                         ) : (
-                          <>Deploy Assessment <ChevronRight size={18} /></>
+                          <>
+                            Deploy Assessment <ChevronRight size={18} />
+                          </>
                         )}
                       </span>
                     </button>
@@ -332,13 +402,22 @@ function RecruiterDashboard() {
                         <ShieldCheck size={40} />
                       </div>
                       <div>
-                        <h2 className="text-3xl font-bold text-white tracking-tight mb-2">Session Ready</h2>
-                        <p className="text-white/50 text-sm font-medium">ID: <span className="font-mono text-emerald-400/80 tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded ml-1">{sessionData.sessionId}</span></p>
+                        <h2 className="text-3xl font-bold text-white tracking-tight mb-2">
+                          Session Ready
+                        </h2>
+                        <p className="text-white/50 text-sm font-medium">
+                          ID:{" "}
+                          <span className="font-mono text-emerald-400/80 tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded ml-1">
+                            {sessionData.sessionId}
+                          </span>
+                        </p>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1 block">Candidate Link</label>
+                      <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1 block">
+                        Candidate Link
+                      </label>
                       <div className="flex flex-col gap-3">
                         <input
                           readOnly
@@ -349,7 +428,14 @@ function RecruiterDashboard() {
                           onClick={copyLink}
                           className="w-full h-12 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 hover:border-white/20 text-white rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
                         >
-                          {copySuccess ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                          {copySuccess ? (
+                            <CheckCircle2
+                              size={16}
+                              className="text-emerald-400"
+                            />
+                          ) : (
+                            <Copy size={16} />
+                          )}
                           {copySuccess ? "Copied!" : "Copy Link"}
                         </button>
                       </div>
@@ -364,7 +450,9 @@ function RecruiterDashboard() {
                         {isSendingEmail ? (
                           <RefreshCcw size={16} className="animate-spin" />
                         ) : (
-                          <><Mail size={16} /> Send Email Invite</>
+                          <>
+                            <Mail size={16} /> Send Email Invite
+                          </>
                         )}
                       </button>
                       <button
@@ -383,7 +471,8 @@ function RecruiterDashboard() {
                           exit={{ opacity: 0 }}
                           className="flex items-center gap-3 text-emerald-400 bg-emerald-500/[0.06] border border-emerald-500/20 px-5 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider"
                         >
-                          <CheckCircle2 size={14} className="shrink-0" /> Invite dispatched successfully
+                          <CheckCircle2 size={14} className="shrink-0" /> Invite
+                          dispatched successfully
                         </motion.div>
                       )}
                       {emailStatus === "failed" && (
@@ -393,7 +482,8 @@ function RecruiterDashboard() {
                           exit={{ opacity: 0 }}
                           className="flex items-center gap-3 text-red-400 bg-red-500/[0.06] border border-red-500/20 px-5 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider"
                         >
-                          <AlertCircle size={14} className="shrink-0" /> {emailError || "Failed to send — check API server"}
+                          <AlertCircle size={14} className="shrink-0" />{" "}
+                          {emailError || "Failed to send — check API server"}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -411,19 +501,23 @@ function RecruiterDashboard() {
             className="bg-white/[0.02] border border-indigo-500/20 rounded-2xl px-8 py-6 flex items-start gap-4 relative overflow-hidden group"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <Sparkles size={16} className="text-indigo-300 mt-0.5 shrink-0 animate-pulse relative z-10" />
+            <Sparkles
+              size={16}
+              className="text-indigo-300 mt-0.5 shrink-0 animate-pulse relative z-10"
+            />
             <div className="relative z-10">
-              <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-1.5">Agent Directive</p>
+              <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-1.5">
+                Agent Directive
+              </p>
               <p className="text-sm text-white/50 leading-relaxed font-medium">
                 {difficulty === "Hard"
                   ? "Expecting deep architectural analysis. Optimization constraints strictly enforced."
                   : difficulty === "Easy"
-                  ? "Focusing on fundamental implementation and code hygiene."
-                  : "Balanced mode: monitoring data structure usage and edge case resilience."}
+                    ? "Focusing on fundamental implementation and code hygiene."
+                    : "Balanced mode: monitoring data structure usage and edge case resilience."}
               </p>
             </div>
           </motion.div>
-
         </div>
       </section>
     </main>
