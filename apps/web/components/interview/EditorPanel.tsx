@@ -64,9 +64,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   switchLanguage,
 }) => {
   return (
-    <div className="flex-[3] min-w-0 border-r border-white/5 flex flex-col bg-[#050505] relative group">
-      <div className="h-12 flex items-center justify-between px-5 border-b border-white/5 bg-slate-900/40 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-3">
+    <div className="flex-[3] min-w-0 border-r border-white/5 flex flex-col bg-black relative group">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-white/5 bg-black shrink-0">
+        <div className="flex items-center gap-6">
           <LanguageSelector
             currentLang={currentLang}
             showLangMenu={showLangMenu}
@@ -75,46 +75,45 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             language={language}
           />
 
-          <div className="h-3 w-px bg-white/10" />
+          <div className="h-4 w-[1px] bg-white/10" />
 
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 group/badge">
-            <span className="text-[11px] text-slate-400 font-bold tracking-tight group-hover/badge:text-white transition-colors">
-              solution
-              <span className="text-white/60 group-hover/badge:text-blue-400">
-                {currentLang.ext}
+          <div className="flex items-center gap-2 group/badge">
+            <span className="text-[10px] text-white/40 font-black uppercase tracking-widest group-hover/badge:text-white transition-colors">
+              source.
+              <span className="text-white group-hover/badge:text-white">
+                {currentLang.ext.replace('.', '')}
               </span>
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono">
-            <div className="text-blue-400/80">
-              Ln {cursorPosition.line}, Col {cursorPosition.col}
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest">
+            <div className="text-white/20">
+              POS <span className="text-white/60 ml-1">{cursorPosition.line}:{cursorPosition.col}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button
               onClick={runCode}
               disabled={isRunning || !isConnected}
-              className={`flex items-center gap-2.5 px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 outline-none
+              className={`flex items-center gap-3 px-6 py-1.5 transition-all duration-300 outline-none text-[10px] font-black uppercase tracking-[0.2em]
                 ${
                   isRunning
-                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.1)] hover:border-emerald-500/40"
+                    ? "bg-white/5 text-white/20 cursor-not-allowed border border-white/5"
+                    : "bg-white text-black hover:bg-[#eee] active:scale-95 shadow-[0_10px_20px_-5px_rgba(255,255,255,0.1)]"
                 }`}
             >
               {isRunning ? (
-                <Loader2 size={13} className="animate-spin" />
+                <Loader2 size={12} className="animate-spin" />
               ) : (
                 <Play
-                  size={13}
+                  size={12}
                   fill="currentColor"
-                  className="opacity-80 group-hover:opacity-100"
                 />
               )}
-              {isRunning ? "Running..." : "Run Code"}
+              {isRunning ? "Executing" : "Execute Solution"}
             </button>
           </div>
         </div>

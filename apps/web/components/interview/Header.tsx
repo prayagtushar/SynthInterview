@@ -7,6 +7,7 @@ import {
   Monitor,
   Timer,
   Info,
+  Zap,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -61,61 +62,57 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-12 border-b border-white/5 flex items-center justify-between px-5 bg-slate-950/40 backdrop-blur-xl shrink-0 z-10">
-      <div className="flex items-center gap-6">
-        <Link href="/" className="flex items-center gap-2.5 group cursor-pointer">
-          <div className="w-7 h-7 rounded-lg overflow-hidden border border-blue-500/20 flex items-center justify-center transition-all group-hover:border-blue-500/40">
-            <img
-              src="/logo.svg"
-              alt="SynthInterview Logo"
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-            />
+    <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black shrink-0 z-10">
+      <div className="flex items-center gap-10">
+        <Link href="/" className="flex items-center gap-4 group cursor-pointer">
+          <div className="w-8 h-8 flex items-center justify-center border border-white/10 bg-white/5 group-hover:border-white/30 transition-all">
+            <Zap className="text-white" size={18} />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-[11px] font-black tracking-[0.2em] text-slate-300 uppercase">
-              Synth<span className="text-white">Interview</span>
-            </span>
-            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-              Smart Security Active
+            <span className="text-[12px] font-black tracking-[0.3em] text-white uppercase italic">
+              Synth<span className="text-white/20 not-italic ml-1">v2.5</span>
             </span>
           </div>
         </Link>
 
-        <div className="h-4 w-px bg-white/5" />
+        <div className="h-6 w-[1px] bg-white/10" />
 
-        <div
-          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.05em] shadow-sm transition-all duration-500 ${stateColor.replace("rounded", "rounded-full")} border border-white/5`}
-        >
-          <div className="scale-75 opacity-70">{stateIcon}</div>
-          {currentState === "PROBLEM_DELIVERY"
-            ? "New Problem"
-            : currentState === "THINK_TIME"
-              ? "Problem Intro"
-              : currentState === "APPROACH_LISTEN"
-                ? "Listening"
-                : currentState === "TESTING"
-                  ? "Testing Solution"
-                  : currentState === "OPTIMIZATION"
-                    ? "Refining Code"
-                    : currentState.replace(/_/g, " ")}
+        <div className="flex items-center gap-4">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Status</div>
+          <div
+            className={`inline-flex items-center gap-3 px-4 py-1.5 border border-white/10 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${stateColor.replace("rounded-full", "").replace("rounded", "")} bg-white/5`}
+          >
+            <div className="scale-75 opacity-70">{stateIcon}</div>
+            {currentState === "PROBLEM_DELIVERY"
+              ? "New Challenge"
+              : currentState === "THINK_TIME"
+                ? "Analyzing"
+                : currentState === "APPROACH_LISTEN"
+                  ? "Collaborating"
+                  : currentState === "TESTING"
+                    ? "Validating"
+                    : currentState === "OPTIMIZATION"
+                      ? "Refining"
+                      : currentState.replace(/_/g, " ")}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-6">
         <div
           onClick={() => isConnected && setIsTimerRunning(!isTimerRunning)}
-          className={`flex items-center gap-2.5 cursor-pointer text-[11px] font-mono font-bold px-4 py-1.5 rounded-full border transition-all duration-300 ${
+          className={`flex items-center gap-4 cursor-pointer text-[12px] font-black px-5 py-2 border transition-all duration-300 ${
             isTimerRunning
-              ? "text-blue-300 bg-blue-500/10 border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
-              : "text-slate-500 bg-slate-900 border-white/5 opacity-50"
-          } hover:border-blue-500/40 hover:opacity-100`}
-          title="Click to toggle timer"
+              ? "text-white bg-white/5 border-white/20"
+              : "text-white/20 bg-transparent border-white/5"
+          } hover:border-white/40`}
+          title="Toggle Chronometer"
         >
           <Timer
             size={14}
-            className={isTimerRunning ? "text-blue-400" : "text-slate-600"}
+            className={isTimerRunning ? "text-white" : "text-white/20"}
           />
-          {formatTime(time)}
+          <span className="font-mono tracking-widest">{formatTime(time)}</span>
         </div>
 
         {(() => {
@@ -129,84 +126,66 @@ export const Header: React.FC<HeaderProps> = ({
           ]);
 
           let s = {
-            dot: "bg-slate-500",
-            text: "text-slate-500",
+            dot: "bg-white/10",
+            text: "text-white/20",
             label: "Standby",
-            glow: "",
           };
 
           if (isSpeaking) {
             s = {
-              dot: "bg-blue-400 animate-pulse",
-              text: "text-blue-300 text-glow-blue",
-              label: "Synth Responding",
-              glow: "shadow-[0_0_12px_rgba(99,102,241,0.4)]",
+              dot: "bg-white animate-pulse",
+              text: "text-white",
+              label: "Synth Active",
             };
           } else if (isUserSpeaking) {
             s = {
-              dot: "bg-emerald-400 animate-bounce",
-              text: "text-emerald-400 text-glow-emerald",
-              label: "Listening...",
-              glow: "shadow-[0_0_12px_rgba(52,211,153,0.4)]",
+              dot: "bg-emerald-500 animate-bounce",
+              text: "text-emerald-400",
+              label: "Receiving Feed",
             };
           } else if (isConnected && conversationStates.has(currentState)) {
             s = {
-              dot: "bg-blue-500/40",
-              text: "text-blue-400/80",
-              label: "Active Session",
-              glow: "",
+              dot: "bg-white/40",
+              text: "text-white/60",
+              label: "Encrypted Link",
             };
           } else if (!isConnected) {
             s = {
-              dot: "bg-rose-500/50",
-              text: "text-rose-400/60",
-              label: "Disconnected",
-              glow: "",
+              dot: "bg-red-500/50",
+              text: "text-red-400/60",
+              label: "Offline",
             };
           }
 
           return (
-            <div className="flex items-center gap-3 bg-white/[0.03] px-4 py-1.5 rounded-full border border-white/5 transition-all duration-500">
-              <div
-                className={`w-2 h-2 rounded-full transition-all duration-500 ${s.dot} ${s.glow}`}
-              />
-              <span
-                className={`text-[10px] font-black tracking-[0.15em] uppercase transition-all duration-500 ${s.text}`}
-              >
+            <div className="flex items-center gap-4 bg-white/[0.02] px-5 py-2 border border-white/5">
+              <div className={`w-1.5 h-1.5 rounded-none transition-all duration-500 ${s.dot}`} />
+              <span className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-500 ${s.text}`}>
                 {s.label}
               </span>
             </div>
           );
         })()}
 
-        {isConnected && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-500/5 border border-rose-500/10">
-            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-            <span className="text-[8px] font-black text-rose-500/80 uppercase tracking-tighter">
-              REC
-            </span>
-          </div>
-        )}
-
-        <div className="h-3 w-px bg-white/5" />
+        <div className="h-6 w-[1px] bg-white/10" />
 
         {!isConnected ? (
           <button
             id="start-interview-btn"
             onClick={connect}
-            className="flex items-center gap-2.5 bg-white hover:bg-slate-100 text-black px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+            className="flex items-center gap-3 bg-white text-black px-6 py-2.5 text-[11px] font-black uppercase tracking-[0.3em] transition-all hover:bg-[#eee] active:scale-95 shadow-[0_10px_30px_-5px_rgba(255,255,255,0.2)]"
           >
-            <CircleDot size={14} className="text-rose-500" />
-            Start Session
+            <CircleDot size={14} className="text-red-600" />
+            Initialize
           </button>
         ) : (
           <button
             id="end-interview-btn"
             onClick={disconnect}
-            className="flex items-center gap-2.5 bg-slate-900 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all active:scale-95"
+            className="flex items-center gap-3 bg-white/5 border border-white/10 hover:border-red-500/40 text-white/40 hover:text-red-400 px-6 py-2.5 text-[11px] font-black uppercase tracking-[0.3em] transition-all active:scale-95"
           >
             <XCircle size={14} />
-            End Now
+            Terminate
           </button>
         )}
       </div>

@@ -406,11 +406,12 @@ export default function SessionView() {
 
   return (
     <div
-      className={`min-h-[100dvh] bg-[#020202] text-slate-100 flex font-sans selection:bg-blue-500/30 selection:text-white ${
+      className={`min-h-[100dvh] bg-[#030303] text-slate-100 flex font-sans selection:bg-white selection:text-black ${
         isConnected ? "cursor-default" : "cursor-wait"
       }`}
     >
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.05),transparent_50%)] pointer-events-none" />
+      <div className="grid-bg opacity-30" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/[0.02] rounded-none blur-[100px] -mr-32 -mt-32 pointer-events-none" />
 
       <Overlays
         currentState={currentState}
@@ -499,12 +500,12 @@ export default function SessionView() {
       </div>
 
       {webcamStream && (
-        <div className="absolute bottom-8 right-8 z-[60] overflow-hidden rounded-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(59,130,246,0.1)] w-56 h-40 bg-slate-900 group/webcam transition-all duration-300 hover:scale-105 hover:border-blue-500/50">
-          <div className="absolute top-3 left-3 z-[61] px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[8px] font-bold text-white tracking-widest opacity-0 group-hover/webcam:opacity-100 transition-opacity uppercase">
-            Active Proctor feed
+        <div className="absolute bottom-8 right-8 z-[60] overflow-hidden rounded-none border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-56 h-40 bg-zinc-950 group/webcam transition-all duration-300 hover:scale-105 hover:border-white/50">
+          <div className="absolute top-3 left-3 z-[61] px-2 py-0.5 border border-white/10 bg-black/60 text-[8px] font-black text-white tracking-[0.3em] opacity-0 group-hover/webcam:opacity-100 transition-opacity uppercase">
+            Live Feed
           </div>
           <video
-            className="w-full h-full object-cover transform scale-x-[-1]"
+            className="w-full h-full object-cover transform scale-x-[-1] opacity-70 group-hover:opacity-100 transition-opacity"
             ref={(node) => {
               if (node) {
                 // @ts-ignore - binding to ref from useMedia
