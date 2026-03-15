@@ -4,6 +4,10 @@ SynthInterview is an intelligent orchestration platform designed to conduct auto
 
 The platform is powered by the Gemini Live API for low-latency dialogue and vision-based analysis, enabling it to act as a senior technical interviewer.
 
+## Demo Access
+
+To access all features of SynthInterview, enter the passcode **`SYNTH2025`** on the login page.
+
 ## Features
 
 - **Real-Time Voice Interaction:** Low-latency conversations powered by the Gemini Live API.
@@ -68,6 +72,11 @@ bun run setup:mac
 
 </details>
 
+## Building the Application
+```bash
+bun run build
+```
+
 ## Running the Application
 
 To start both the frontend and backend development servers simultaneously:
@@ -78,8 +87,8 @@ bun run dev
 
 The services will be available at:
 
-- Frontend: `http://localhost:3000`
-- API Backend: `http://localhost:8000`
+- Frontend: `https://synth-interview-web-1082839508369.asia-south1.run.app`
+- API Backend: `https://synth-interview-api-1082839508369.asia-south1.run.app`
 
 ## Deployment
 
