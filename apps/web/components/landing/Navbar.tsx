@@ -4,8 +4,18 @@ import React from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Terminal, LayoutDashboard } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../lib/context/AuthContext";
 
 export default function Navbar() {
+  const { user, isDemoMode, loading, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace("/");
+  };
+
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0, x: "-50%" }}
@@ -72,6 +82,29 @@ export default function Navbar() {
             <LayoutDashboard size={14} />
             Console
           </Link>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {!loading && (user || isDemoMode) ? (
+            <>
+              <span className="hidden md:block text-[11px] text-white/40 font-medium max-w-[140px] truncate">
+                {isDemoMode ? "Demo Mode" : user?.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="text-[11px] font-bold uppercase tracking-widest text-white/60 hover:text-white border border-white/10 hover:border-white/30 px-4 py-1.5 rounded-full transition-all"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="text-[11px] font-bold uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 px-4 py-1.5 rounded-full transition-all"
+            >
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </motion.nav>

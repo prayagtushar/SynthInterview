@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import AuthGuard from "../../components/AuthGuard";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -59,7 +60,7 @@ const fadeUpVariants = {
   },
 };
 
-export default function RecruiterDashboard() {
+function RecruiterDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">(
@@ -529,5 +530,13 @@ export default function RecruiterDashboard() {
         </p>
       </footer>
     </main>
+  );
+}
+
+export default function RecruiterPage() {
+  return (
+    <AuthGuard requiredRole="recruiter">
+      <RecruiterDashboard />
+    </AuthGuard>
   );
 }

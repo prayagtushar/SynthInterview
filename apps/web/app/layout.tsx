@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Inter, Playfair_Display } from "next/font/google";
 import StructuredData from "@/components/seo/StructuredData";
+import { AuthProvider } from "../lib/context/AuthContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -67,11 +68,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body
         className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-black text-white selection:bg-white selection:text-black`}
       >
-        <link rel="manifest" href="/site.webmanifest" />
-        <div className="noise" />
-        <div className="grid-bg" />
-        <StructuredData />
-        {children}
+        <AuthProvider>
+          <link rel="manifest" href="/site.webmanifest" />
+          <div className="noise" />
+          <div className="grid-bg" />
+          <StructuredData />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

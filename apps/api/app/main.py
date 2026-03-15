@@ -17,7 +17,7 @@ from app.agent import InterviewAgent, AgentState
 from app.gemini_client import GeminiLiveClient
 from app.cheat_detector import CheatDetector
 from app.questions import get_question, select_question_for_session, select_questions_for_session
-from app.email_service import send_invite_email, send_scorecard_email
+from app.email_service import send_invite_email, send_scorecard_email, send_recruiter_invite_email
 from app.code_runner import run_code_against_tests
 from app.scorecard import generate_scorecard
 
@@ -142,6 +142,11 @@ class SessionResponse(BaseModel):
 
 class SendInviteRequest(BaseModel):
     appUrl: Optional[str] = None  # override APP_URL from env if provided
+
+
+class SendRecruiterInviteRequest(BaseModel):
+    email: str
+    inviteLink: str
 
 
 class RunCodeRequest(BaseModel):
@@ -279,6 +284,18 @@ async def send_invite(session_id: str, body: SendInviteRequest):
     if not sent:
         return {"success": False, "message": "Email not sent — SMTP not configured or send failed. Copy the link manually."}
     return {"success": True, "message": f"Invite sent to {data.get('candidateEmail')}"}
+
+
+@app.post("/send-recruiter-invite")
+async def send_recruiter_invite(body: SendRecruiterInviteRequest):
+    """Sends a recruiter portal invite email with a magic link."""
+    sent = await send_recruiter_invite_email(
+        to_email=body.email,
+        invite_link=body.inviteLink,
+    )
+    if not sent:
+        return {"success": False, "message": "Email not sent — SMTP not configured or send failed."}
+    return {"success": True, "message": f"Recruiter invite sent to {body.email}"}
 
 
 @app.post("/sessions/{session_id}/run-code")

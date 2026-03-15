@@ -2,8 +2,10 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, LayoutDashboard, Terminal, Activity } from "lucide-react";
+import { ArrowRight, UserCheck, Terminal, Lock, Activity } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../lib/context/AuthContext";
 
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -18,6 +20,10 @@ const fadeUpVariants = {
 };
 
 export default function FinalCTA() {
+  const { role, isDemoMode } = useAuth();
+  const router = useRouter();
+  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
+
   return (
     <section className="section-container bg-[#030303] border-t border-white/5 py-32 md:py-48 overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-white/[0.015] rounded-full blur-[140px] pointer-events-none" />
@@ -75,29 +81,52 @@ export default function FinalCTA() {
             </div>
           </Link>
 
-          <Link
-            href="/recruiter"
-            className="flex-1 flex flex-col items-start gap-8 p-10 lg:p-12 rounded-[2.5rem] border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/20 transition-all duration-500 group shadow-xl"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:scale-110 group-hover:border-white/30 group-hover:bg-white/[0.08] transition-all duration-500 mb-2 shadow-lg p-3.5">
-              <LayoutDashboard size={24} />
-            </div>
-            <div className="space-y-3 mt-4">
-              <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-colors">
-                Recruiter Console
-              </h3>
-              <p className="text-white/50 text-base md:text-lg font-medium leading-relaxed group-hover:text-white/70 transition-colors">
-                Manage sessions and analyze deep-technical scorecards.
-              </p>
-            </div>
-            <div className="mt-12 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-white/30 group-hover:text-white/60 transition-colors">
-              Enter Workspace{" "}
-              <ArrowRight
-                size={14}
-                className="group-hover:translate-x-1 transition-transform"
-              />
-            </div>
-          </Link>
+          {hasRecruiterAccess ? (
+            <Link
+              href="/recruiter"
+              className="flex-1 flex flex-col items-start gap-8 p-10 lg:p-12 rounded-[2.5rem] border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/20 transition-all duration-500 group shadow-xl"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:scale-110 group-hover:border-white/30 group-hover:bg-white/[0.08] transition-all duration-500 mb-2 shadow-lg p-3.5">
+                <UserCheck size={24} />
+              </div>
+              <div className="space-y-3 mt-4">
+                <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-colors">
+                  Recruiter Console
+                </h3>
+                <p className="text-white/50 text-base md:text-lg font-medium leading-relaxed group-hover:text-white/70 transition-colors">
+                  Manage sessions and analyze deep-technical scorecards.
+                </p>
+              </div>
+              <div className="mt-12 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-white/30 group-hover:text-white/60 transition-colors">
+                Enter Workspace{" "}
+                <ArrowRight
+                  size={14}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
+              </div>
+            </Link>
+          ) : (
+            <button
+              onClick={() => router.push("/login")}
+              className="flex-1 flex flex-col items-start gap-8 p-10 lg:p-12 rounded-[2.5rem] border border-white/10 bg-white/[0.01] opacity-50 cursor-pointer group shadow-xl"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 mb-2 shadow-lg p-3.5">
+                <Lock size={24} />
+              </div>
+              <div className="space-y-3 mt-4">
+                <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-colors">
+                  Recruiter Console
+                </h3>
+                <p className="text-white/50 text-base md:text-lg font-medium leading-relaxed transition-colors">
+                  Login required to access the recruiter workspace.
+                </p>
+              </div>
+              <div className="mt-12 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-white/30 transition-colors">
+                Login to Access{" "}
+                <ArrowRight size={14} />
+              </div>
+            </button>
+          )}
         </motion.div>
       </motion.div>
     </section>

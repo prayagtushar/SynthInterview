@@ -122,6 +122,92 @@ async def send_invite_email(
     )
 
 
+async def send_recruiter_invite_email(
+    to_email: str,
+    invite_link: str,
+) -> bool:
+    """Sends recruiter portal invite email with magic link."""
+    if not _smtp_configured():
+        logger.warning("SMTP not configured — skipping recruiter invite email to %s", to_email)
+        return False
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#000;padding:28px 36px;border-bottom:1px solid #222;">
+            <p style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#fff;">
+              SYNTH<span style="color:#555;">INTERVIEW</span>
+            </p>
+            <p style="margin:4px 0 0;font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#555;">
+              Technical Interview Platform
+            </p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px;">
+            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff;">
+              You've been invited as a Recruiter.
+            </p>
+            <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">
+              Click the button below to activate your recruiter account. This link is valid for <strong style="color:#ccc;">7 days</strong> and can only be used once.
+            </p>
+
+            <!-- CTA Button -->
+            <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:#fff;border-radius:8px;">
+                  <a href="{invite_link}" style="display:inline-block;padding:14px 32px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#000;text-decoration:none;">
+                    Activate Recruiter Access
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Link fallback -->
+            <p style="margin:0 0 6px;font-size:11px;color:#555;">Or copy this link:</p>
+            <p style="margin:0 0 28px;font-size:11px;color:#666;word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:6px;border:1px solid #1a1a1a;">
+              {invite_link}
+            </p>
+
+            <p style="margin:0;font-size:12px;color:#555;line-height:1.6;">
+              After clicking the link, sign in with this email address using Google to access the Recruiter Portal.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#0a0a0a;padding:16px 36px;border-top:1px solid #1a1a1a;text-align:center;">
+            <p style="margin:0;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;">
+              SynthInterview &mdash; AI-Powered Technical Interviews
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+""".strip()
+
+    return await _send(
+        to_email=to_email,
+        subject="You've been invited to SynthInterview as a Recruiter",
+        html=html,
+    )
+
+
 async def send_scorecard_email(
     to_email: str,
     scorecard: dict,

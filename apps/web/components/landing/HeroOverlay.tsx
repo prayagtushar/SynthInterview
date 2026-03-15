@@ -1,9 +1,11 @@
 "use client";
 
 import React from "react";
+import { ArrowRight, Sparkles, Terminal, UserCheck, Lock } from "lucide-react";
 import { motion } from "framer-motion";
-import { ArrowRight, Terminal, UserCheck, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../lib/context/AuthContext";
 
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -18,6 +20,10 @@ const fadeUpVariants = {
 };
 
 export default function HeroOverlay() {
+  const { role, isDemoMode } = useAuth();
+  const router = useRouter();
+  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
+
   return (
     <div className="relative isolate overflow-hidden">
       {/* Background architectural elements */}
@@ -74,16 +80,26 @@ export default function HeroOverlay() {
                 className="group-hover:translate-x-1 transition-transform"
               />
             </Link>
-            <Link
-              href="/recruiter"
-              className="group flex items-center gap-3 bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-[11px] font-black uppercase tracking-[0.3em] hover:bg-white/10 hover:border-white/20 transition-all backdrop-blur-3xl hover:scale-[1.02]"
-            >
-              <Zap
-                size={16}
-                className="text-white/60 group-hover:text-amber-400 transition-colors"
-              />
-              Launch Console
-            </Link>
+            {hasRecruiterAccess ? (
+              <Link
+                href="/recruiter"
+                className="group flex items-center gap-3 bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-[11px] font-black uppercase tracking-[0.3em] hover:bg-white/10 hover:border-white/20 transition-all backdrop-blur-3xl hover:scale-[1.02]"
+              >
+                <UserCheck
+                  size={16}
+                  className="text-white/60 group-hover:text-white transition-colors"
+                />
+                Launch Console
+              </Link>
+            ) : (
+              <button
+                onClick={() => router.push("/login")}
+                className="group flex items-center gap-3 bg-white/5 border border-white/10 text-white/50 px-10 py-5 rounded-full text-[11px] font-black uppercase tracking-[0.3em] hover:bg-white/10 hover:border-white/20 transition-all backdrop-blur-3xl hover:scale-[1.02]"
+              >
+                <Lock size={16} className="text-white/40" />
+                Recruiter Login
+              </button>
+            )}
           </motion.div>
 
           {/* Floating Mockup Component */}

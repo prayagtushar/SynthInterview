@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   CircleDot,
   XCircle,
   AlertTriangle,
   Monitor,
   Timer,
-  Cpu,
   Info,
 } from "lucide-react";
 
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-12 border-b border-white/5 flex items-center justify-between px-5 bg-slate-950/40 backdrop-blur-xl shrink-0 z-10">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2.5 group cursor-default">
+        <Link href="/" className="flex items-center gap-2.5 group cursor-pointer">
           <div className="w-7 h-7 rounded-lg overflow-hidden border border-blue-500/20 flex items-center justify-center transition-all group-hover:border-blue-500/40">
             <img
               src="/logo.svg"
@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
               Smart Security Active
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="h-4 w-px bg-white/5" />
 

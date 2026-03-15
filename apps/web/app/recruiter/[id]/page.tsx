@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import AuthGuard from "../../../components/AuthGuard";
 import { useParams, useRouter } from "next/navigation";
 import {
   ShieldAlert,
@@ -23,7 +24,7 @@ import { motion } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function RecruiterSessionView() {
+function RecruiterSessionView() {
   const { id } = useParams();
   const router = useRouter();
   const [session, setSession] = useState<any>(null);
@@ -277,6 +278,14 @@ export default function RecruiterSessionView() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function RecruiterSessionPage() {
+  return (
+    <AuthGuard requiredRole="recruiter">
+      <RecruiterSessionView />
+    </AuthGuard>
   );
 }
 
