@@ -37,6 +37,8 @@ substitutions:
   _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ""
   _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ""
   _NEXT_PUBLIC_FIREBASE_APP_ID: ""
+  _NEXT_PUBLIC_ADMIN_EMAIL: ""
+  _NEXT_PUBLIC_DEMO_CODE: ""
 
 steps:
   # Build API and Web images in parallel
@@ -73,6 +75,10 @@ steps:
       - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
       - --build-arg
       - NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}
+      - --build-arg
+      - NEXT_PUBLIC_ADMIN_EMAIL=${_NEXT_PUBLIC_ADMIN_EMAIL}
+      - --build-arg
+      - NEXT_PUBLIC_DEMO_CODE=${_NEXT_PUBLIC_DEMO_CODE}
       - .
     waitFor: ["-"]
 
