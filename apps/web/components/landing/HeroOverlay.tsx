@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Terminal, UserCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 const fadeUpVariants = {
@@ -51,19 +51,45 @@ export default function HeroOverlay() {
           at software-level speed.
         </motion.p>
 
-        <motion.div variants={fadeUpVariants} className="hero-cta-group">
+        <motion.div
+          variants={fadeUpVariants}
+          className="flex flex-col sm:flex-row gap-6 w-full max-w-2xl justify-center mt-4"
+        >
           <Link
             href="/session"
-            className="hero-cta hero-cta-primary btn-glow group"
+            className="hero-cta hero-cta-primary btn-glow group flex-1 py-6 flex flex-col items-center gap-3 text-center"
           >
-            Start a Session
+            <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center">
+              <Terminal size={24} className="text-black" />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-bold">Join a Mock Session</span>
+              <span className="text-xs opacity-60 font-medium uppercase tracking-widest">
+                Candidate View
+              </span>
+            </div>
             <ArrowRight
-              size={18}
-              className="ml-1 transition-transform group-hover:translate-x-1"
+              size={20}
+              className="transition-transform group-hover:translate-x-1"
             />
           </Link>
-          <Link href="/recruiter" className="hero-cta hero-cta-secondary">
-            Recruiter Portal
+          <Link
+            href="/recruiter"
+            className="hero-cta hero-cta-secondary group flex-1 py-6 flex flex-col items-center gap-3 text-center border-white/10"
+          >
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+              <UserCheck size={24} className="text-white/80" />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-bold">Recruiter Portal</span>
+              <span className="text-xs opacity-50 font-medium uppercase tracking-widest">
+                Dashboard View
+              </span>
+            </div>
+            <ArrowRight
+              size={20}
+              className="transition-transform group-hover:translate-x-1"
+            />
           </Link>
         </motion.div>
 

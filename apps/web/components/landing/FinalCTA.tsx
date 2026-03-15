@@ -50,7 +50,7 @@ export default function FinalCTA() {
               <Terminal size={24} className="text-black" />
             </div>
             <div className="flex flex-col items-center">
-              <span className="text-lg font-bold">Join a Session</span>
+              <span className="text-lg font-bold">Join a Mock Session</span>
               <span className="text-xs opacity-60 font-medium uppercase tracking-widest">
                 {" "}
                 Candidate View{" "}
