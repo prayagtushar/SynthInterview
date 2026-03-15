@@ -139,7 +139,7 @@ function LoginContent() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={signingIn}
-                className="group relative w-full h-12 flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 text-black font-semibold rounded-xl transition-all disabled:opacity-50 active:scale-[0.98] text-[15px] shadow-[0_1px_2px_rgba(0,0,0,0.1)] overflow-hidden"
+                className="group relative w-full h-14 flex items-center justify-center gap-4 bg-white hover:bg-zinc-100 text-black font-bold rounded-xl transition-all disabled:opacity-50 active:scale-[0.98] text-[15px] shadow-[0_1px_2px_rgba(0,0,0,0.1)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 {signingIn ? (
@@ -155,21 +155,21 @@ function LoginContent() {
                 <span className="relative z-10">{signingIn ? "Authenticating..." : "Continue with Google"}</span>
               </button>
 
-              <div className="flex items-center gap-4 py-2">
+              <div className="flex items-center gap-4 py-3">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] select-none">or</span>
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
               </div>
 
               {/* Secure Form */}
-              <div className="space-y-6">
-                <div className="space-y-2">
+              <div className="space-y-7">
+                <div className="space-y-3">
                   <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.1em] ml-1 flex items-center gap-2">
                     Access Code
                   </label>
                   <div className="relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within/input:text-white transition-colors duration-300">
-                      <KeyRound size={18} />
+                    <div className="absolute left-[20px] top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within/input:text-white transition-colors duration-300 pointer-events-none">
+                      <KeyRound size={20} />
                     </div>
                     <input
                       type="password"
@@ -177,7 +177,8 @@ function LoginContent() {
                       value={accessCode}
                       onChange={(e) => setAccessCode(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAccessCode()}
-                      className={`w-full h-12 bg-white/[0.03] border ${error ? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/20' : 'border-white/10 focus:border-white/30 focus:ring-white/10'} hover:border-white/20 focus:ring-4 pl-12 pr-4 rounded-xl text-sm text-white outline-none transition-all placeholder:text-zinc-600 font-medium`}
+                      style={{ paddingLeft: '56px' }}
+                      className={`w-full h-14 bg-white/[0.03] border ${error ? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/20' : 'border-white/10 focus:border-white/30 focus:ring-white/10'} hover:border-white/20 focus:ring-4 pr-6 rounded-xl text-[15px] text-white outline-none transition-all placeholder:text-zinc-500 font-medium tracking-wide`}
                     />
                     {error && (
                       <motion.div
@@ -193,7 +194,7 @@ function LoginContent() {
                 
                 <button
                   onClick={handleAccessCode}
-                  className="group relative w-full h-12 bg-zinc-900 overflow-hidden border border-white/5 hover:border-white/20 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] text-[13px] uppercase tracking-wider"
+                  className="group relative w-full h-14 bg-zinc-900 overflow-hidden border border-white/5 hover:border-zinc-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] text-[14px] uppercase tracking-wider"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   <span className="relative z-10 flex items-center justify-center gap-2">
