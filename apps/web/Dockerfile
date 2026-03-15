@@ -12,9 +12,10 @@ COPY packages/config ./packages/config
 RUN bun install
 
 # Stage 2: Build the Next.js app
-FROM deps AS builder
+FROM node:20 AS builder
 WORKDIR /app
 
+COPY --from=deps /app /app
 COPY apps/web ./apps/web
 
 # NEXT_PUBLIC_* variables are baked into the bundle at build time
@@ -34,7 +35,9 @@ ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 
-RUN bun run --cwd apps/web build
+# Use node instead of bun for the build step to avoid potential crashes in some environments
+ENV NEXT_TELEMETRY_DISABLED 1
+RUN cd apps/web && node node_modules/.bin/next build
 
 # Stage 3: Production runner (Node for Next.js standalone)
 FROM node:20-alpine AS runner

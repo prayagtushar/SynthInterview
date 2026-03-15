@@ -22,7 +22,7 @@
 #   _NEXT_PUBLIC_FIREBASE_APP_ID
 
 substitutions:
-  _REGION: us-central1
+  _REGION: asia-south1
   _AR_REPO: synth-interview
   _API_SERVICE: synth-interview-api
   _WEB_SERVICE: synth-interview-web
@@ -45,8 +45,6 @@ steps:
     args:
       - build
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$COMMIT_SHA
-      - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:latest
       - -f
       - apps/api/Dockerfile
@@ -57,8 +55,6 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$COMMIT_SHA
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:latest
       - -f
@@ -99,7 +95,7 @@ steps:
       - run
       - deploy
       - ${_API_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$COMMIT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:latest
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
@@ -122,7 +118,7 @@ steps:
       - run
       - deploy
       - ${_WEB_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$COMMIT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:latest
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
@@ -132,11 +128,11 @@ steps:
       - --memory=512Mi
       - --cpu=1
       - --set-env-vars=NODE_ENV=production
-    waitFor: [push-web]
+    waitFor: [deploy-api]
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$COMMIT_SHA
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:latest
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
