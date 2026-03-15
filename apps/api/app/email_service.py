@@ -1,5 +1,3 @@
-# Email service for SynthInterview (SMTP).
-
 import os
 import logging
 from email.mime.multipart import MIMEMultipart
@@ -21,14 +19,117 @@ async def send_invite_email(
     session_id: str,
     difficulty: str,
     topics: list,
-) -> bool:
-    """Sends interview invitation email."""
+) -> tuple[bool, str]:
+    """Sends interview invitation email. Returns (success, error_message)."""
     if not _smtp_configured():
         logger.warning("SMTP not configured — skipping invite email to %s", to_email)
-        return False
+        return False, "SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS in .env"
 
     session_link = f"{os.getenv('APP_URL', 'http://localhost:3000')}/session?id={session_id}"
     topics_str = ", ".join(topics) if topics else "General Algorithms"
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;">
+
+        <tr>
+          <td style="background:#000;padding:28px 36px;border-bottom:1px solid #222;">
+            <p style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#fff;">
+              SYNTH<span style="color:#555;">INTERVIEW</span>
+            </p>
+            <p style="margin:4px 0 0;font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#555;">
+              Technical Interview Platform
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:36px;">
+            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff;">
+              Your interview session is ready.
+            </p>
+            <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">
+              Click the button below to begin your technical interview. The link is valid for <strong style="color:#ccc;">60 minutes</strong> from when you click it.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid #222;border-radius:8px;margin-bottom:28px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;padding-bottom:4px;">Difficulty</td>
+                      <td style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;padding-bottom:4px;">Topics</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size:14px;font-weight:700;color:#fff;">{difficulty}</td>
+                      <td style="font-size:14px;font-weight:700;color:#fff;">{topics_str}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:#fff;border-radius:8px;">
+                  <a href="{session_link}" style="display:inline-block;padding:14px 32px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#000;text-decoration:none;">
+                    Start Interview
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 6px;font-size:11px;color:#555;">Or copy this link:</p>
+            <p style="margin:0 0 28px;font-size:11px;color:#666;word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:6px;border:1px solid #1a1a1a;">
+              {session_link}
+            </p>
+
+            <p style="margin:0 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;">Before you start</p>
+            <ul style="margin:0;padding-left:18px;font-size:13px;color:#888;line-height:2;">
+              <li>Have a code editor or use the built-in Monaco editor</li>
+              <li>Ensure your microphone is working</li>
+              <li>Be prepared to share your entire screen</li>
+              <li>Find a quiet environment with no distractions</li>
+            </ul>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#0a0a0a;padding:16px 36px;border-top:1px solid #1a1a1a;text-align:center;">
+
+            <p style="margin:0;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;">
+              SynthInterview &mdash; AI-Powered Technical Interviews
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+""".strip()
+
+    return await _send(
+        to_email=to_email,
+        subject="Your SynthInterview Session is Ready",
+        html=html,
+    )
+
+
+async def send_recruiter_invite_email(
+    to_email: str,
+    invite_link: str,
+) -> tuple[bool, str]:
+    """Sends recruiter portal invite email with magic link. Returns (success, error_message)."""
+    if not _smtp_configured():
+        logger.warning("SMTP not configured — skipping recruiter invite email to %s", to_email)
+        return False, "SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS in .env"
 
     html = f"""
 <!DOCTYPE html>
@@ -55,36 +156,18 @@ async def send_invite_email(
         <tr>
           <td style="padding:36px;">
             <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff;">
-              Your interview session is ready.
+              You've been invited as a Recruiter.
             </p>
             <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">
-              Click the button below to begin your technical interview. The link is valid for <strong style="color:#ccc;">60 minutes</strong> from when you click it.
+              Click the button below to activate your recruiter account. This link is valid for <strong style="color:#ccc;">7 days</strong> and can only be used once.
             </p>
-
-            <!-- Details box -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid #222;border-radius:8px;margin-bottom:28px;">
-              <tr>
-                <td style="padding:16px 20px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;padding-bottom:4px;">Difficulty</td>
-                      <td style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;padding-bottom:4px;">Topics</td>
-                    </tr>
-                    <tr>
-                      <td style="font-size:14px;font-weight:700;color:#fff;">{difficulty}</td>
-                      <td style="font-size:14px;font-weight:700;color:#fff;">{topics_str}</td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
 
             <!-- CTA Button -->
             <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
               <tr>
                 <td style="background:#fff;border-radius:8px;">
-                  <a href="{session_link}" style="display:inline-block;padding:14px 32px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#000;text-decoration:none;">
-                    Start Interview
+                  <a href="{invite_link}" style="display:inline-block;padding:14px 32px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#000;text-decoration:none;">
+                    Activate Recruiter Access
                   </a>
                 </td>
               </tr>
@@ -93,17 +176,12 @@ async def send_invite_email(
             <!-- Link fallback -->
             <p style="margin:0 0 6px;font-size:11px;color:#555;">Or copy this link:</p>
             <p style="margin:0 0 28px;font-size:11px;color:#666;word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:6px;border:1px solid #1a1a1a;">
-              {session_link}
+              {invite_link}
             </p>
 
-            <!-- Tips -->
-            <p style="margin:0 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;">Before you start</p>
-            <ul style="margin:0;padding-left:18px;font-size:13px;color:#888;line-height:2;">
-              <li>Have a code editor or use the built-in Monaco editor</li>
-              <li>Ensure your microphone is working</li>
-              <li>Be prepared to share your entire screen</li>
-              <li>Find a quiet environment with no distractions</li>
-            </ul>
+            <p style="margin:0;font-size:12px;color:#555;line-height:1.6;">
+              After clicking the link, sign in with this email address using Google to access the Recruiter Portal.
+            </p>
           </td>
         </tr>
 
@@ -125,7 +203,7 @@ async def send_invite_email(
 
     return await _send(
         to_email=to_email,
-        subject="Your SynthInterview Session is Ready",
+        subject="You've been invited to SynthInterview as a Recruiter",
         html=html,
     )
 
@@ -148,7 +226,6 @@ async def send_scorecard_email(
     feedback = scorecard.get("feedback", "")
     dimension_feedback = scorecard.get("dimension_feedback", {})
 
-    # Rating style
     rating_color = {
         "Excellent": "#22c55e",
         "Good": "#3b82f6",
@@ -188,7 +265,6 @@ async def send_scorecard_email(
           </td>
         </tr>"""
 
-    # Truncate content
     code_snippet = final_code[-1500:] if len(final_code) > 1500 else final_code
     code_escaped = code_snippet.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -201,7 +277,6 @@ async def send_scorecard_email(
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;">
 
-        <!-- Header -->
         <tr>
           <td style="background:#000;padding:28px 36px;border-bottom:1px solid #222;">
             <p style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#fff;">
@@ -213,7 +288,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Overall Score -->
         <tr>
           <td style="padding:32px 36px;border-bottom:1px solid #1a1a1a;text-align:center;">
             <div style="display:inline-block;width:90px;height:90px;border-radius:50%;border:3px solid {rating_color};line-height:84px;font-size:28px;font-weight:900;color:#fff;margin-bottom:12px;">
@@ -224,7 +298,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Dimension Scores -->
         <tr>
           <td style="padding:0;">
             <p style="margin:20px 36px 8px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Score Breakdown</p>
@@ -234,7 +307,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Overall Feedback -->
         <tr>
           <td style="padding:24px 36px;border-top:1px solid #1a1a1a;">
             <p style="margin:0 0 10px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Interviewer Feedback</p>
@@ -242,7 +314,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Code Submission -->
         <tr>
           <td style="padding:0 36px 24px;">
             <p style="margin:0 0 10px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Your Submission ({language})</p>
@@ -252,9 +323,9 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Footer -->
         <tr>
           <td style="background:#0a0a0a;padding:16px 36px;border-top:1px solid #1a1a1a;text-align:center;">
+
             <p style="margin:0;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;">
               SynthInterview &mdash; AI-Powered Technical Interviews
             </p>
@@ -268,40 +339,59 @@ async def send_scorecard_email(
 </html>
 """.strip()
 
-    return await _send(
+    ok, _ = await _send(
         to_email=to_email,
         subject=f"Your SynthInterview Scorecard — {question_title}",
         html=html,
     )
+    return ok  # scorecard callers only need bool
 
 
-async def _send(to_email: str, subject: str, html: str) -> bool:
-    """SMTP send via aiosmtplib."""
+def _send_sync(
+    to_email: str,
+    subject: str,
+    html: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_pass: str,
+    email_from: str,
+) -> None:
+    """Synchronous SMTP send via stdlib smtplib (runs in a thread)."""
+    import smtplib
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = email_from
+    msg["To"] = to_email
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(smtp_user, smtp_pass)
+        smtp.sendmail(email_from, [to_email], msg.as_string())
+
+
+async def _send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    """SMTP send. Returns (success, error_message)."""
+    import asyncio
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+    email_from = os.getenv("EMAIL_FROM", "") or smtp_user
+
     try:
-        import aiosmtplib
-
-        smtp_host = os.getenv("SMTP_HOST", "")
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        smtp_user = os.getenv("SMTP_USER", "")
-        smtp_pass = os.getenv("SMTP_PASS", "")
-        email_from = os.getenv("EMAIL_FROM", "") or smtp_user
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = email_from
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html"))
-
-        await aiosmtplib.send(
-            msg,
-            hostname=smtp_host,
-            port=smtp_port,
-            username=smtp_user,
-            password=smtp_pass,
-            start_tls=True,
+        await asyncio.to_thread(
+            _send_sync,
+            to_email, subject, html,
+            smtp_host, smtp_port, smtp_user, smtp_pass, email_from,
         )
         logger.info("Email sent to %s: %s", to_email, subject)
-        return True
+        return True, ""
     except Exception as e:
         logger.error("Failed to send email to %s: %s", to_email, e)
-        return False
+        return False, str(e)

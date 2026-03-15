@@ -83,7 +83,7 @@ export const Terminal: React.FC<TerminalProps> = ({
           )}
 
           {isRunning && (
-            <div className="flex items-center gap-2 text-[10px] text-indigo-400 animate-pulse">
+            <div className="flex items-center gap-2 text-[10px] text-blue-400 animate-pulse">
               <Loader2 size={12} className="animate-spin" />
               <span className="font-bold uppercase tracking-widest">
                 Running...
@@ -111,7 +111,7 @@ export const Terminal: React.FC<TerminalProps> = ({
       </div>
 
       {/* Terminal Content */}
-      <div className="flex-1 overflow-auto p-5 font-mono text-[12px] leading-relaxed selection:bg-indigo-500/30">
+      <div className="flex-1 overflow-auto p-5 font-mono text-[12px] leading-relaxed selection:bg-blue-500/30">
         <div className="max-w-4xl mx-auto space-y-3">
           {isRunning && !runResult && !execResult && (
             <div className="flex items-center gap-3 text-slate-500">

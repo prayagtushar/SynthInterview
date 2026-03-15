@@ -2,15 +2,19 @@
 
 import React from "react";
 import {
-  Monitor,
-  MessageSquare,
-  ShieldAlert,
-  FileText,
-  CheckCircle2,
-  PlayCircle,
+  Code,
+  Zap,
+  ShieldCheck,
+  BarChart2,
+  Maximize2,
+  ChevronRight,
+  Cpu,
+  Fingerprint,
+  Radio,
+  Scan,
+  Database,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import Link from "next/link";
 
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -24,298 +28,189 @@ const fadeUpVariants = {
   },
 };
 
-const FEATURES = [
-  {
-    icon: <Monitor />,
-    title: "Real-time Signal Analysis",
-    desc: "Our AI monitors keystrokes and editor state in real-time, detecting subtle signals that traditional tools miss.",
-  },
-  {
-    icon: <MessageSquare />,
-    title: "Adaptive Dialogue",
-    desc: "Intelligent follow-ups based on the candidate’s specific solution path, simulating a world-class senior interviewer.",
-  },
-  {
-    icon: <ShieldAlert />,
-    title: "Integrity Monitoring",
-    desc: "Behavioral analysis and screen-share monitoring ensure the session remains secure and fair for all parties.",
-  },
-  {
-    icon: <FileText />,
-    title: "Instant Scorecard",
-    desc: "Get a deep-dive technical report and recording immediately after the session ends. No more waiting.",
-  },
-];
-
-const STEPS = [
-  {
-    id: "01",
-    title: "Connect Live",
-    desc: "Sync your Gemini Live API key and candidate info.",
-  },
-  {
-    id: "02",
-    title: "Session Start",
-    desc: "The AI takes over with voice, screen-share, and code.",
-  },
-  {
-    id: "03",
-    title: "Deep Insights",
-    desc: "Review the instant technical scorecard and data.",
-  },
-];
-
 export default function FeaturesSection() {
   return (
-    <>
-      {/* Feature Grid */}
-      <section id="features" className="features-section">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-          className="features-inner"
-        >
-          <motion.header variants={fadeUpVariants} className="features-header">
-            <h2 className="features-title">
-              The intelligence of a{" "}
-              <span className="highlight-serif">senior dev</span>, automated.
-            </h2>
-            <p className="features-subtitle">
-              Stop wasting expensive engineering hours on screening. Our AI
-              handles the heavy lifting with human-level nuance.
-            </p>
-          </motion.header>
+    <section
+      id="features"
+      className="section-container border-t border-white/5 bg-[#030303] py-32 md:py-48 overflow-hidden"
+    >
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-white/[0.012] rounded-full blur-[120px] pointer-events-none" />
 
-          <div className="features-grid">
-            {FEATURES.map((feature, i) => (
-              <motion.div
-                variants={fadeUpVariants}
-                key={i}
-                className="feature-card"
-              >
-                <div className="feature-icon">{feature.icon}</div>
-                <h3 className="feature-card-title">{feature.title}</h3>
-                <p className="feature-card-desc">{feature.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Process Section */}
-      <section
-        id="workflow"
-        className="features-section border-t border-white/5 bg-[#050505]"
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+        className="section-inner relative z-10 px-6 sm:px-10 max-w-7xl"
       >
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={{ visible: { transition: { staggerChildren: 0.2 } } }}
-          className="features-inner"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <div>
-              <motion.h2
-                variants={fadeUpVariants}
-                className="features-title text-left"
-              >
-                The <span className="highlight-serif">workflow</span> built for
-                speed.
-              </motion.h2>
-              <div className="space-y-12 mt-12">
-                {STEPS.map((step, i) => (
-                  <motion.div
-                    variants={fadeUpVariants}
-                    key={i}
-                    className="flex gap-8 group"
-                  >
-                    <span className="text-3xl font-black text-white/10 group-hover:text-white/30 transition-colors">
-                      {step.id}
-                    </span>
-                    <div>
-                      <h4 className="text-xl font-bold mb-2">{step.title}</h4>
-                      <p className="text-gray-500 max-w-sm">{step.desc}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-            <motion.div
-              variants={fadeUpVariants}
-              className="rounded-3xl border border-white/10 bg-black aspect-square flex items-center justify-center p-8 glow-wrapper"
-            >
-              <div className="glow-bg" />
-              <PlayCircle size={100} className="text-white/20" />
-            </motion.div>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Testimonial Section */}
-      <section className="features-section">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+        <motion.header
           variants={fadeUpVariants}
-          className="features-inner"
+          className="mb-32 text-center flex flex-col items-center"
         >
-          <div className="testimonial-card">
-            <p className="testimonial-text">
-              "SynthInterview has saved our engineering team over 40 hours a
-              week on initial screenings while{" "}
-              <span className="text-white">increasing our hire rate</span>. The
-              AI's technical depth is truly impressive."
-            </p>
-            <div className="flex items-center justify-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-600" />
-              <div className="text-left">
-                <div className="font-bold text-white uppercase tracking-widest text-xs">
-                  Marcus Chen
+          <div className="section-badge mb-8 gap-2.5">
+            <Cpu size={14} className="text-white/40 flex-shrink-0" />
+            <span className="leading-none translate-y-[0.5px]">
+              Core Capabilities
+            </span>
+          </div>
+          <h2 className="section-title text-gradient !text-4xl md:!text-7xl leading-[1.1]">
+            How our AI <span className="font-serif-italic">interviews</span>{" "}
+            <br /> the best engineers.
+          </h2>
+          <p className="mt-8 text-white/40 max-w-2xl text-lg md:text-xl leading-relaxed mx-auto">
+            Advanced AI evaluation and live coding environments built into one
+            seamless platform.
+          </p>
+        </motion.header>
+
+        <div className="grid gap-8 md:grid-cols-12 md:grid-rows-6 w-full">
+          {/* Main Feature: AI Voice Agent */}
+          <motion.div
+            variants={fadeUpVariants}
+            className="md:col-span-12 lg:col-span-12 lg:row-span-3 rounded-[2.5rem] p-10 lg:p-14 border border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] transition-all duration-700 relative overflow-hidden group shadow-2xl"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-[0.02] group-hover:opacity-[0.05] transition-all duration-1000 group-hover:scale-110 pointer-events-none">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="0.5"
+                className="w-[500px] h-[500px]"
+              >
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </div>
+
+            <div className="relative z-10 flex flex-col md:flex-row gap-16 items-center">
+              <div className="flex-1 space-y-10">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-white shadow-lg group-hover:text-emerald-500 transition-all duration-500 p-4">
+                    <Radio size={28} />
+                  </div>
+                  <div className="px-5 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-2.5 shadow-[0_0_15px_rgba(16,185,129,0.05)]">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 italic">
+                      Active Feed
+                    </span>
+                  </div>
                 </div>
-                <div className="text-gray-500 text-xs">
-                  VP of Engineering, CloudScale
+                <div>
+                  <h3 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+                    Interactive <br /> Voice AI
+                  </h3>
+                  <p className="text-white/70 text-lg md:text-xl leading-relaxed max-w-lg group-hover:text-white transition-colors">
+                    The AI talks to candidates in real-time, asking deep
+                    technical questions and following up based on their answers.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {["0.05s LATENCY", "REAL-TIME ASR", "VOICE SYNTH V2"].map(
+                    (tag) => (
+                      <span
+                        key={tag}
+                        className="px-5 py-2 rounded-full border border-white/10 bg-white/[0.05] text-[10px] font-bold uppercase tracking-[0.2em] text-white/50"
+                      >
+                        {tag}
+                      </span>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full md:w-[300px] aspect-square relative flex items-center justify-center bg-white/[0.01] rounded-[2rem] border border-white/[0.02]">
+                <div className="absolute inset-0 border border-white/[0.05] rounded-full animate-[spin_30s_linear_infinite]" />
+                <div className="absolute inset-6 border border-white/[0.02] rounded-full animate-[spin_20s_linear_infinite_reverse]" />
+                <div className="flex items-end gap-2.5 h-20">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ height: ["20%", "100%", "40%", "90%", "20%"] }}
+                      transition={{
+                        duration: 1 + i * 0.1,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      className="w-1.5 bg-white/20 rounded-full"
+                    />
+                  ))}
+                </div>
+                <div className="absolute bottom-6 text-[8px] font-black text-white/10 tracking-[0.4em] uppercase">
+                  Processing Units
                 </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      </section>
+          </motion.div>
 
-      {/* Pricing Section */}
-      <section
-        id="pricing"
-        className="features-section border-t border-white/5"
-      >
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-          className="features-inner"
-        >
-          <motion.header variants={fadeUpVariants} className="features-header">
-            <h2 className="features-title">
-              Transparent <span className="highlight-serif">pricing</span>.
-            </h2>
-          </motion.header>
-
-          <div className="pricing-grid">
-            <motion.div variants={fadeUpVariants} className="pricing-card">
-              <div className="text-sm font-bold uppercase tracking-widest text-gray-500">
-                Starter
-              </div>
-              <div className="text-5xl font-black text-white">Free</div>
-              <p className="text-gray-500 text-sm">
-                Perfect for small teams and prototyping.
-              </p>
-              <div className="space-y-4">
-                {[
-                  "5 Sessions / mo",
-                  "Standard AI feedback",
-                  "Gemini 1.5 Flash",
-                ].map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 text-sm text-gray-300"
-                  >
-                    <CheckCircle2 size={16} className="text-white/40" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/recruiter"
-                className="hero-cta hero-cta-secondary w-full mt-auto text-center"
-              >
-                Get Started
-              </Link>
-            </motion.div>
-
-            <motion.div
-              variants={fadeUpVariants}
-              className="pricing-card featured"
-            >
-              <div className="text-sm font-bold uppercase tracking-widest text-[#000]/60">
-                Scaling
-              </div>
-              <div className="text-5xl font-black text-black">
-                $199<span className="text-lg font-bold">/mo</span>
-              </div>
-              <p className="text-black/60 text-sm">
-                The standard for growing engineering teams.
-              </p>
-              <div className="space-y-4 font-medium">
-                {[
-                  "Unlimited Sessions",
-                  "Gemini 2.0 Pro",
-                  "Custom AI Personas",
-                  "Priority API Access",
-                ].map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 text-sm text-black"
-                  >
-                    <CheckCircle2 size={16} className="text-black/80" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/recruiter"
-                className="hero-cta hero-cta-primary w-full mt-auto text-center"
-              >
-                Go Pro
-              </Link>
-            </motion.div>
-
-            <motion.div variants={fadeUpVariants} className="pricing-card">
-              <div className="text-sm font-bold uppercase tracking-widest text-gray-500">
-                Enterprise
-              </div>
-              <div className="text-5xl font-black text-white">Custom</div>
-              <p className="text-gray-500 text-sm">
-                Dedicated support and custom integrations.
-              </p>
-              <div className="space-y-4">
-                {[
-                  "SSO & Security",
-                  "SLA Guarantee",
-                  "Dedicated AI Training",
-                ].map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 text-sm text-gray-300"
-                  >
-                    <CheckCircle2 size={16} className="text-white/40" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/recruiter"
-                className="hero-cta hero-cta-secondary w-full mt-auto text-center"
-              >
-                Contact Sales
-              </Link>
-            </motion.div>
-          </div>
-        </motion.div>
-      </section>
-
-      <footer className="footer">
-        <div className="features-inner">
-          <div className="flex justify-between items-center opacity-60">
-            <div className="font-black text-white text-xl italic">SYNTH</div>
-            <div className="text-xs">
-              &copy; 2026 SynthInterview. All rights reserved.
+          {/* Feature: Integrity */}
+          <motion.div
+            variants={fadeUpVariants}
+            className="md:col-span-12 lg:col-span-6 lg:row-span-3 rounded-[2.5rem] p-10 border border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] transition-all duration-700 group shadow-lg flex flex-col justify-between"
+          >
+            <div className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity pointer-events-none">
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+                  backgroundSize: "24px 24px",
+                }}
+              />
             </div>
-          </div>
+            <div className="flex justify-between items-start relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white mb-8 group-hover:text-amber-500 transition-all duration-500 p-3.5">
+                <Fingerprint size={24} />
+              </div>
+              <div className="text-[10px] font-bold text-white/30 tracking-[0.3em] uppercase">
+                BIO-VERIFIED
+              </div>
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-4 tracking-tight">
+                Smart Proctoring
+              </h3>
+              <p className="text-white/60 text-base md:text-lg leading-relaxed group-hover:text-white/80 transition-colors">
+                Continuous fraud detection that monitors video, screen, and
+                browser activity to ensure interview integrity.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Feature: Scoring */}
+          <motion.div
+            variants={fadeUpVariants}
+            className="md:col-span-12 lg:col-span-6 lg:row-span-3 rounded-[2.5rem] p-10 border border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] transition-all duration-700 group shadow-lg flex flex-col justify-between"
+          >
+            <div className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity pointer-events-none">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-1000" />
+              <div className="absolute inset-0 overflow-hidden">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-px bg-white/10 mb-8 w-full" />
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-between items-start relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white mb-8 group-hover:text-blue-500 transition-all duration-500 p-3.5">
+                <Database size={24} />
+              </div>
+              <div className="text-[10px] font-bold text-white/30 tracking-[0.3em] uppercase">
+                6-D MATRIX
+              </div>
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-4 tracking-tight">
+                Detailed Reports
+              </h3>
+              <p className="text-white/60 text-base md:text-lg leading-relaxed group-hover:text-white/80 transition-colors">
+                Get an instant breakdown of candidate skills, code logic, and
+                communication depth with clear, objective scores.
+              </p>
+            </div>
+          </motion.div>
         </div>
-      </footer>
-    </>
+      </motion.div>
+    </section>
   );
 }

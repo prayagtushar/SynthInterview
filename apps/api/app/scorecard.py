@@ -1,5 +1,3 @@
-# Scorecard generation using Gemini analysis.
-
 import json
 import logging
 import os
@@ -59,8 +57,6 @@ async def generate_scorecard(
     return scorecard
 
 
-# ── Prompt builder ────────────────────────────────────────────────────────────
-
 def _build_prompt(
     question: dict,
     final_code: str,
@@ -81,7 +77,6 @@ def _build_prompt(
         if hint_index > 0 else "No hints used"
     )
 
-    # Build integrity flags section
     integrity_lines = []
     if tab_switch_count > 0:
         integrity_lines.append(f"- Tab switches: {tab_switch_count}")
@@ -162,8 +157,6 @@ IMPORTANT: If the candidate used a creative or unconventional but valid algorith
 """
 
 
-# ── Gemini caller ─────────────────────────────────────────────────────────────
-
 async def _call_gemini(prompt: str, model_id: str) -> Optional[str]:
     try:
         from google import genai
@@ -184,12 +177,9 @@ async def _call_gemini(prompt: str, model_id: str) -> Optional[str]:
         return None
 
 
-# ── Parser ────────────────────────────────────────────────────────────────────
-
 def _parse_scorecard(raw: str, hint_deduction: int) -> dict:
     """Extracts JSON and computes overall score."""
     try:
-        # Handle markdown fences
         text = raw.strip()
         if text.startswith("```"):
             lines = text.splitlines()
@@ -198,7 +188,6 @@ def _parse_scorecard(raw: str, hint_deduction: int) -> dict:
         data = json.loads(text)
         scores = data.get("scores", {})
 
-        # Weighted overall score
         overall = 0.0
         for dim, weight in _SCORE_WEIGHTS.items():
             overall += scores.get(dim, 0) * weight

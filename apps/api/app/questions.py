@@ -11,6 +11,7 @@ QUESTIONS = {
         "difficulty": "Easy",
         "topics": ["Arrays", "HashMap"],
         "pattern": "Hash Map",
+        "function_name": "twoSum",
         "description": """Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.
 
 You may assume that each input would have exactly one solution, and you may not use the same element twice.
@@ -63,6 +64,7 @@ Output: [1, 2]
         "difficulty": "Easy",
         "topics": ["Strings", "Stack"],
         "pattern": "Stack",
+        "function_name": "isValid",
         "description": """Given a string `s` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.
 
 An input string is valid if:
@@ -117,6 +119,7 @@ Output: false""",
         "difficulty": "Easy",
         "topics": ["LinkedList"],
         "pattern": "Iterative Pointer Reversal",
+        "function_name": "reverseList",
         "description": """Given the `head` of a singly linked list, reverse the list, and return the reversed list.
 
 **Example 1:**
@@ -164,6 +167,7 @@ Output: []""",
         "difficulty": "Easy",
         "topics": ["Arrays", "Sliding Window"],
         "pattern": "Sliding Window / Greedy",
+        "function_name": "maxProfit",
         "description": """You are given an array `prices` where `prices[i]` is the price of a given stock on the ith day.
 
 You want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock.
@@ -213,6 +217,7 @@ Explanation: No profit is possible.""",
         "difficulty": "Easy",
         "topics": ["Arrays", "Binary Search"],
         "pattern": "Binary Search",
+        "function_name": "search",
         "description": """Given an array of integers `nums` which is sorted in ascending order, and an integer `target`, write a function to search `target` in `nums`. If `target` exists, then return its index. Otherwise, return -1.
 
 You must write an algorithm with O(log n) runtime complexity.
@@ -258,6 +263,7 @@ Output: -1""",
         "difficulty": "Easy",
         "topics": ["DP"],
         "pattern": "Dynamic Programming (Fibonacci)",
+        "function_name": "climbStairs",
         "description": """You are climbing a staircase. It takes `n` steps to reach the top.
 
 Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?
@@ -307,6 +313,7 @@ Explanation: There are three ways: 1+1+1, 1+2, 2+1.""",
         "difficulty": "Medium",
         "topics": ["Strings", "HashMap"],
         "pattern": "Hash Map with Sorted Key",
+        "function_name": "groupAnagrams",
         "description": """Given an array of strings `strs`, group the anagrams together. You can return the answer in any order.
 
 An Anagram is a word or phrase formed by rearranging the letters of a different word or phrase, typically using all the original letters exactly once.
@@ -355,6 +362,7 @@ Output: [[""]]
         "difficulty": "Medium",
         "topics": ["Strings", "Sliding Window", "HashMap"],
         "pattern": "Sliding Window",
+        "function_name": "lengthOfLongestSubstring",
         "description": """Given a string `s`, find the length of the longest substring without repeating characters.
 
 **Example 1:**
@@ -405,6 +413,7 @@ Output: 3""",
         "difficulty": "Medium",
         "topics": ["DP"],
         "pattern": "Dynamic Programming (Bottom-Up)",
+        "function_name": "coinChange",
         "description": """You are given an integer array `coins` representing coins of different denominations and an integer `amount` representing a total amount of money.
 
 Return the fewest number of coins that you need to make up that amount. If that amount of money cannot be made up by any combination of the coins, return -1.
@@ -453,6 +462,7 @@ Output: -1""",
         "difficulty": "Medium",
         "topics": ["Graphs"],
         "pattern": "DFS / BFS Graph Traversal",
+        "function_name": "numIslands",
         "description": """Given an m x n 2D binary grid `grid` which represents a map of '1's (land) and '0's (water), return the number of islands.
 
 An island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically. You may assume all four edges of the grid are all surrounded by water.
@@ -523,6 +533,7 @@ Output: 3""",
         "difficulty": "Medium",
         "topics": ["Arrays", "Two Pointers"],
         "pattern": "Two Pointers",
+        "function_name": "maxArea",
         "description": """You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i`th line are `(i, 0)` and `(i, height[i])`.
 
 Find two lines that together with the x-axis form a container, such that the container contains the most water.
@@ -575,6 +586,7 @@ Output: 1
         "difficulty": "Medium",
         "topics": ["Arrays", "Binary Search"],
         "pattern": "Binary Search on Rotated Array",
+        "function_name": "findMin",
         "description": """Suppose an array of length `n` sorted in ascending order is rotated between 1 and n times.
 
 Given the sorted rotated array `nums` of unique elements, return the minimum element of this array.
@@ -635,6 +647,7 @@ Output: 11
         "difficulty": "Hard",
         "topics": ["Arrays", "Two Pointers", "Stack"],
         "pattern": "Two Pointers",
+        "function_name": "trap",
         "description": """Given `n` non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.
 
 **Example 1:**
@@ -684,6 +697,7 @@ Output: 9
         "difficulty": "Hard",
         "topics": ["DP", "Strings"],
         "pattern": "Dynamic Programming",
+        "function_name": "wordBreak",
         "description": """Given a string `s` and a dictionary of strings `wordDict`, return `true` if `s` can be segmented into a space-separated sequence of one or more dictionary words.
 
 Note that the same word in the dictionary may be reused multiple times in the segmentation.
@@ -742,6 +756,7 @@ Output: false
         "difficulty": "Hard",
         "topics": ["Strings", "Stack", "DP"],
         "pattern": "Stack / Dynamic Programming",
+        "function_name": "longestValidParentheses",
         "description": """Given a string containing just the characters '(' and ')', return the length of the longest valid (well-formed) parentheses substring.
 
 **Example 1:**

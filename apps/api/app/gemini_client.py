@@ -11,7 +11,6 @@ class GeminiLiveClient:
         self.model_id = model_id
         self._session_ctx = None
         self.session = None
-        # Queues for audio/frames and text turns
         self._realtime_queue: asyncio.Queue = asyncio.Queue()
         self._text_queue: asyncio.Queue = asyncio.Queue()
         self._realtime_task: asyncio.Task | None = None
@@ -70,7 +69,6 @@ class GeminiLiveClient:
                 try:
                     await asyncio.wait_for(self._turn_complete.wait(), timeout=15)
                     self._turn_complete.clear()
-                    # "context" items use turn_complete=False to update state silently.
                     is_context = kind == "context"
                     await self.session.send_client_content(
                         turns={"role": "user", "parts": [{"text": payload}]},
@@ -173,7 +171,6 @@ class GeminiLiveClient:
                                 text = part.text
                                 import re
 
-                                # Intercept [ADVANCE: STATE]
                                 advance_match = re.search(r"\[ADVANCE:\s*([^\]]+)\]", text)
                                 if advance_match:
                                     target_state = advance_match.group(1).strip()
@@ -190,7 +187,6 @@ class GeminiLiveClient:
                                     }
                                     text = text.replace(advance_match.group(0), "").strip()
 
-                                # Intercept [WARN: reason]
                                 warn_match = re.search(r"\[WARN:\s*([^\]]+)\]", text)
                                 if warn_match:
                                     reason = warn_match.group(1).strip()

@@ -20,11 +20,14 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
   const requestHumanReview = async () => {
     setReviewLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/sessions/${sessionId}/request-review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      const res = await fetch(
+        `${API_BASE}/sessions/${sessionId}/request-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
       if (res.ok) setReviewRequested(true);
     } catch {
       // silent fail — user can retry
@@ -38,9 +41,9 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
       {scorecard ? (
         <>
           {/* Overall score */}
-          <div className="flex items-center gap-3 p-4 bg-slate-900/60 border border-indigo-500/10 rounded-xl shadow-lg">
-            <div className="w-12 h-12 rounded-full border-2 border-indigo-500/30 flex items-center justify-center shrink-0 bg-indigo-500/5">
-              <span className="text-sm font-black text-indigo-400">
+          <div className="flex items-center gap-3 p-4 bg-slate-900/60 border border-blue-500/10 rounded-xl shadow-lg">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20 shadow-lg shadow-blue-500/10">
+              <span className="text-xl font-black text-blue-400">
                 {scorecard.overall_score}
               </span>
             </div>
@@ -143,7 +146,7 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
           )}
 
           <p className="text-[9px] text-gray-700 text-center">
-            Scorecard emailed to candidate.
+            Results saved to your dashboard.
           </p>
 
           {/* Request Human Review */}
@@ -151,9 +154,9 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
             <button
               onClick={requestHumanReview}
               disabled={reviewLoading}
-              className="w-full py-2.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[10px] font-semibold uppercase tracking-widest transition-colors disabled:opacity-50"
+              className="w-full py-2.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[10px] font-semibold uppercase tracking-widest transition-colors disabled:opacity-50"
             >
-              {reviewLoading ? "Requesting..." : "Request Human Review"}
+              {reviewLoading ? "Requesting..." : "Contact Recruiter"}
             </button>
           ) : (
             <p className="text-[10px] text-emerald-400 text-center">
@@ -179,7 +182,7 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
               <div className="h-px bg-slate-800 rounded-full" />
             </div>
           ))}
-          <div className="border border-dashed border-indigo-500/20 rounded-xl p-6 bg-indigo-500/5">
+          <div className="border border-dashed border-blue-500/20 rounded-xl p-6 bg-blue-500/5">
             <p className="text-[10px] text-slate-500 text-center leading-relaxed italic uppercase tracking-wider">
               {currentState === "COMPLETED"
                 ? "Generating professional scorecard…"

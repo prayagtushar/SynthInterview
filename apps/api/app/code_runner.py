@@ -1,6 +1,3 @@
-# Local code execution for Python and Node (JS/TS).
-# Java/C++/Go support pending.
-
 import asyncio
 import json
 import logging
@@ -28,7 +25,8 @@ async def run_code_against_tests(
             "error": "No executable test cases for this question.",
         }
 
-    harness = _build_harness(code, language, structured, question.get("sort_compare", False))
+    function_name = question.get("function_name", "solve")
+    harness = _build_harness(code, language, structured, question.get("sort_compare", False), function_name)
     if harness is None:
         return {
             "passed": 0,
@@ -56,8 +54,6 @@ async def run_code_against_tests(
         "error": f"Auto-grading for '{language}' requires a self-hosted execution environment.",
     }
 
-
-# ── Local subprocess execution ───────────────────────────────────────────────
 
 async def _run_subprocess(harness: str, tests: list, cmd: list[str], ext: str) -> dict:
     """Runs harness in subprocess and parses output."""
@@ -109,14 +105,12 @@ def _strip_ts_types(code: str) -> str:
     return code
 
 
-# ── Harness builders ────────────────────────────────────────────────────────
-
-def _build_harness(code: str, language: str, tests: list, sort_compare) -> Optional[str]:
+def _build_harness(code: str, language: str, tests: list, sort_compare, function_name: str) -> Optional[str]:
     tests_json = json.dumps(tests)
     if language == "python":
-        return _python_harness(code, tests_json, sort_compare)
+        return _python_harness(code, tests_json, sort_compare, function_name)
     elif language in ("javascript", "typescript"):
-        return _js_harness(code, tests_json, sort_compare)
+        return _js_harness(code, tests_json, sort_compare, function_name)
     elif language == "java":
         return _java_harness(code, tests_json)
     elif language == "cpp":
@@ -126,7 +120,7 @@ def _build_harness(code: str, language: str, tests: list, sort_compare) -> Optio
     return None
 
 
-def _python_harness(code: str, tests_json: str, sort_compare) -> str:
+def _python_harness(code: str, tests_json: str, sort_compare, function_name: str) -> str:
     if sort_compare == "deep":
         compare = "sorted([sorted(x) for x in _result]) == sorted([sorted(x) for x in _expected]) if hasattr(_result,'__iter__') else False"
     elif sort_compare:
@@ -135,13 +129,12 @@ def _python_harness(code: str, tests_json: str, sort_compare) -> str:
         compare = "_result == _expected"
     return f"""{code}
 
-# ─── Auto-grader ─────────────────────────────────────────────
 import json as _json
 _tests = {tests_json}
 _passed = 0
 for _i, _tc in enumerate(_tests):
     try:
-        _result = solve(*_tc["args"])
+        _result = {function_name}(*_tc["args"])
         _expected = _tc["expected"]
         _ok = {compare}
         if _ok:
@@ -156,7 +149,7 @@ print(f"SUMMARY:{{_passed}}/{{len(_tests)}}")
 """
 
 
-def _js_harness(code: str, tests_json: str, sort_compare) -> str:
+def _js_harness(code: str, tests_json: str, sort_compare, function_name: str) -> str:
     if sort_compare == "deep":
         compare_fn = """
 function _deepEqual(a, b) {
@@ -186,7 +179,7 @@ for (let _i = 0; _i < _tests.length; _i++) {{
   const _tc = _tests[_i];
   const _label = _tc.label || `TC${{_i+1}}`;
   try {{
-    const _result = solve(..._tc.args);
+    const _result = {function_name}(..._tc.args);
     const _ok = _deepEqual(_result, _tc.expected);
     if (_ok) _passed++;
     console.log(`${{_label}}:${{_ok?'PASS':'FAIL'}}|GOT:${{JSON.stringify(_result)}}|EXP:${{JSON.stringify(_tc.expected)}}`);
@@ -199,14 +192,11 @@ console.log(`SUMMARY:${{_passed}}/${{_tests.length}}`);
 
 
 def _java_harness(code: str, tests_json: str) -> str:
-    # Java is complex — use a wrapper that prints basic output
-    # Candidate's code must be a class with a solve() method
     return f"""import java.util.*;
 import java.util.stream.*;
 
 {code}
 
-// Auto-grader main
 class Main {{
     public static void main(String[] args) {{
         // Java auto-grading requires manual test specification
@@ -235,15 +225,12 @@ int main() {{
 def _go_harness(code: str, tests_json: str) -> str:
     return f"""{code}
 
-// Auto-grader
 func main() {{
     fmt.Println("SUMMARY:0/0")
     fmt.Println("NOTE:Go auto-grading runs code but cannot parse test cases automatically.")
 }}
 """
 
-
-# ── Output parser ────────────────────────────────────────────────────────────
 
 def _parse_output(stdout: str, stderr: str, tests: list) -> dict:
     """Parse harness stdout into structured results."""

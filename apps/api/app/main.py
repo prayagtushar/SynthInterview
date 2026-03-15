@@ -17,7 +17,7 @@ from app.agent import InterviewAgent, AgentState
 from app.gemini_client import GeminiLiveClient
 from app.cheat_detector import CheatDetector
 from app.questions import get_question, select_question_for_session, select_questions_for_session
-from app.email_service import send_invite_email, send_scorecard_email
+from app.email_service import send_invite_email, send_scorecard_email, send_recruiter_invite_email
 from app.code_runner import run_code_against_tests
 from app.scorecard import generate_scorecard
 
@@ -25,7 +25,6 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = FastAPI(title="SynthInterview API", version="0.2.0")
 
-# CORS logic
 allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*")
 allowed_origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
 
@@ -37,7 +36,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Firebase init
 firebase_cred_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 storage_bucket = os.getenv("GCS_BUCKET_NAME")
 
@@ -75,8 +73,6 @@ SCREEN_REQUIRED_STATES = {
     AgentState.OPTIMIZATION,
     AgentState.FLAGGED,
 }
-
-# ── Tools ─────────────────────────────────────────────────────────────────
 
 AGENT_TOOLS = {
     "function_declarations": [
@@ -127,9 +123,6 @@ AGENT_TOOLS = {
 }
 
 
-# ── Models ─────────────────────────────────────────────────────────────────
-
-
 class SessionConfig(BaseModel):
     candidateEmail: str
     difficulty: str = "Medium"
@@ -151,12 +144,14 @@ class SendInviteRequest(BaseModel):
     appUrl: Optional[str] = None  # override APP_URL from env if provided
 
 
+class SendRecruiterInviteRequest(BaseModel):
+    email: str
+    inviteLink: str
+
+
 class RunCodeRequest(BaseModel):
     code: str
     language: str = "python"
-
-
-# ── REST ───────────────────────────────────────────────────────────────────
 
 
 @app.get("/")
@@ -169,16 +164,55 @@ async def health():
     return {"status": "ok"}
 
 
+class ProctoringEvent(BaseModel):
+    type: str
+    data: Optional[dict] = None
+    timestamp: Optional[str] = None
+
+
+@app.post("/sessions/{session_id}/proctoring-event")
+async def record_proctoring_event(session_id: str, event: ProctoringEvent):
+    """Records a proctoring violation or activity event."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    
+    event_entry = {
+        "type": event.type,
+        "data": event.data or {},
+        "timestamp": event.timestamp or datetime.utcnow().isoformat(),
+        "clientIp": "rest-api",
+    }
+
+    try:
+        doc_ref = db.collection("sessions").document(session_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        doc_ref.update({
+            "cheatEvents": firestore.ArrayUnion([event_entry])
+        })
+        
+        if event.type == "tab_switch":
+            doc_data = doc.to_dict()
+            metadata = doc_data.get("metadata", {})
+            metadata["tab_switch_count"] = metadata.get("tab_switch_count", 0) + 1
+            doc_ref.update({"metadata": metadata})
+
+        return {"success": True}
+    except Exception as e:
+        print(f"Error recording proctoring event: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/sessions", response_model=SessionResponse)
 async def create_session(config: SessionConfig):
     if not db:
         raise HTTPException(status_code=503, detail="Firestore unavailable")
     session_id = str(uuid.uuid4())
 
-    # Auto-set time limit based on difficulty
     time_limit = {"Easy": 45, "Medium": 45, "Hard": 60}.get(config.difficulty, 45)
 
-    # Select multiple questions based on difficulty
     questions = select_questions_for_session(config.difficulty, config.topics)
     question_ids = [q["id"] for q in questions]
 
@@ -205,7 +239,6 @@ async def get_session(session_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Session not found")
     data = doc.to_dict()
-    # Normalize: support legacy sessions with single questionId
     if "questionIds" not in data and "questionId" in data:
         data["questionIds"] = [data["questionId"]]
     if "timeLimit" not in data:
@@ -236,7 +269,7 @@ async def send_invite(session_id: str, body: SendInviteRequest):
     original = _os.environ.get("APP_URL")
     _os.environ["APP_URL"] = app_url
 
-    sent = await send_invite_email(
+    sent, err = await send_invite_email(
         to_email=data.get("candidateEmail", ""),
         session_id=session_id,
         difficulty=data.get("difficulty", "Medium"),
@@ -249,27 +282,36 @@ async def send_invite(session_id: str, body: SendInviteRequest):
         _os.environ.pop("APP_URL", None)
 
     if not sent:
-        return {"success": False, "message": "Email not sent — SMTP not configured or send failed. Copy the link manually."}
+        return {"success": False, "message": err or "Email not sent — copy the link manually."}
     return {"success": True, "message": f"Invite sent to {data.get('candidateEmail')}"}
+
+
+@app.post("/send-recruiter-invite")
+async def send_recruiter_invite(body: SendRecruiterInviteRequest):
+    """Sends a recruiter portal invite email with a magic link."""
+    sent, err = await send_recruiter_invite_email(
+        to_email=body.email,
+        invite_link=body.inviteLink,
+    )
+    if not sent:
+        return {"success": False, "message": err or "Email not sent — SMTP not configured or send failed."}
+    return {"success": True, "message": f"Recruiter invite sent to {body.email}"}
 
 
 @app.post("/sessions/{session_id}/run-code")
 async def run_code(session_id: str, body: RunCodeRequest):
     """Executes candidate code against tests."""
-    # Look up question from Firestore
     question_id = "two-sum"
     if db:
         try:
             doc = db.collection("sessions").document(session_id).get()
             if doc.exists:
                 sdata = doc.to_dict()
-                # New multi-question format
                 question_ids = sdata.get("questionIds")
                 if question_ids:
                     idx = sdata.get("currentQuestionIndex", 0)
                     question_id = question_ids[min(idx, len(question_ids) - 1)]
                 else:
-                    # Legacy single-question format
                     question_id = (
                         sdata.get("questionId")
                         or sdata.get("metadata", {}).get("questionId")
@@ -287,7 +329,6 @@ async def run_code(session_id: str, body: RunCodeRequest):
         question=question,
     )
 
-    # Store results for scorecard
     if db:
         try:
             db.collection("sessions").document(session_id).update({
@@ -309,7 +350,6 @@ async def create_scorecard(session_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Session not found")
     data = doc.to_dict()
-    # Support both new (questionIds) and legacy (questionId) format
     question_ids = data.get("questionIds")
     if question_ids:
         idx = data.get("currentQuestionIndex", len(question_ids) - 1)
@@ -333,20 +373,21 @@ async def create_scorecard(session_id: str):
         cheat_events=data.get("cheatEvents", []),
     )
 
-    # Save scorecard
     try:
         db.collection("sessions").document(session_id).update({"scorecard": scorecard})
     except Exception:
         pass
 
-    # Email scorecard
-    email_sent = await send_scorecard_email(
-        to_email=data.get("candidateEmail", ""),
-        scorecard=scorecard,
-        question_title=question.get("title", "Coding Problem"),
-        final_code=meta.get("final_code", ""),
-        language=language,
-    )
+    email_sent = False
+    candidate_email = data.get("candidateEmail", "")
+    if candidate_email and candidate_email.lower() != "guest@demo.com":
+        email_sent = await send_scorecard_email(
+            to_email=candidate_email,
+            scorecard=scorecard,
+            question_title=question.get("title", "Coding Problem"),
+            final_code=meta.get("final_code", ""),
+            language=language,
+        )
 
     return {**scorecard, "email_sent": email_sent}
 
@@ -371,7 +412,6 @@ async def request_review(session_id: str, body: RequestReviewBody):
         "humanReviewNotes": body.notes or "",
     })
 
-    # Email recruiter — best effort
     try:
         recruiter_email = os.getenv("RECRUITER_EMAIL") or data.get("recruiterEmail", "")
         if recruiter_email:
@@ -389,8 +429,6 @@ async def request_review(session_id: str, body: RequestReviewBody):
     return {"success": True, "message": "Human review requested. The recruiter has been notified."}
 
 
-# ── WebSocket Live Interview ───────────────────────────────────────────────
-
 _ACTIVE_SESSIONS = {}
 
 @app.websocket("/ws/live/{session_id}")
@@ -402,7 +440,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
     
     if session_id in _ACTIVE_SESSIONS:
         existing_ws, existing_ip = _ACTIVE_SESSIONS[session_id]
-        # Allow reconnecting from same IP, but drop an attempt from a different device
         if existing_ip != client_ip and existing_ip != "127.0.0.1" and existing_ip != "::1":
             print(f"Session {session_id}: BLOCKED (another device/IP connected: {existing_ip} vs {client_ip})")
             await websocket.send_json({
@@ -413,7 +450,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             await websocket.close()
             return
         
-        # Optionally close the old connection if reconnecting from same IP
         pass 
 
     _ACTIVE_SESSIONS[session_id] = (websocket, client_ip)
@@ -421,17 +457,18 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
     gemini: Optional[GeminiLiveClient] = None
     agent: Optional["InterviewAgent"] = None
 
+    # Sandbox sessions (no real session ID) skip all Firestore I/O to start fast.
+    is_sandbox = session_id.startswith("sandbox-")
+
     try:
-        # Single Firestore read — used for both terminated/stale check AND session init below
         sdata: Optional[dict] = None
-        if db:
+        if not is_sandbox and db:
             doc = db.collection("sessions").document(session_id).get()
             if doc.exists:
                 sdata = doc.to_dict()
                 stored_status = sdata.get("status", "IDLE")
                 stored_meta = sdata.get("metadata", {})
-                
-                # Terminated sessions (cheating/privacy)
+
                 if stored_status == "COMPLETED" and (
                     stored_meta.get("terminated_for_cheating")
                     or stored_meta.get("terminated_screen_loss")
@@ -444,8 +481,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     })
                     await websocket.close()
                     return
-                
-                # Reset if disconnected > 60s
+
                 disconnected_at = sdata.get("disconnectedAt")
                 if (
                     stored_status not in ("IDLE", "COMPLETED")
@@ -469,28 +505,8 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     except Exception as e:
                         print(f"Session {session_id}: Error parsing disconnectedAt: {e}")
 
-        # ── Session initialization (reuse sdata from the single read above) ──
-        # No second Firestore round-trip needed — sdata already has everything we need.
-        session_info: Optional[dict] = sdata  # may be None if doc didn't exist
-        if db and session_info is None:
-            # Doc didn't exist — create a guest session
-            question = get_question("two-sum")
-            session_info = {
-                "candidateEmail": "guest@demo.com",
-                "difficulty": "Easy",
-                "topics": ["Arrays", "HashMaps"],
-                "questionId": question["id"],
-            }
-            db.collection("sessions").document(session_id).set(
-                {
-                    **session_info,
-                    "sessionId": session_id,
-                    "createdAt": datetime.utcnow().isoformat(),
-                    "status": "IDLE",
-                }
-            )
+        session_info: Optional[dict] = sdata
         if session_info is None:
-            # No Firestore at all — local dev fallback
             question = get_question("two-sum")
             session_info = {
                 "candidateEmail": "guest@demo.com",
@@ -498,8 +514,17 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 "topics": ["Arrays", "HashMaps"],
                 "questionId": question["id"],
             }
+            # Only persist to Firestore for real (non-sandbox) sessions
+            if db and not is_sandbox:
+                db.collection("sessions").document(session_id).set(
+                    {
+                        **session_info,
+                        "sessionId": session_id,
+                        "createdAt": datetime.utcnow().isoformat(),
+                        "status": "IDLE",
+                    }
+                )
 
-        # Support both new (questionIds list) and legacy (single questionId) sessions
         question_ids = session_info.get("questionIds") or [session_info.get("questionId", "two-sum")]
         questions = [get_question(qid) for qid in question_ids]
 
@@ -514,32 +539,32 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             }
         )
 
-        # ── Build system instruction (sync, ~1ms) ──────────────────
         system_instr = _build_system_instruction(session_info, questions)
         gemini = GeminiLiveClient(GEMINI_API_KEY, LIVE_MODEL_ID)
 
-        # ── Start Gemini connect immediately — run in parallel with hydration ──
-        # Cheat detection setup (sync)
         bucket = None
         try:
             bucket = storage.bucket()
         except Exception as e:
             print(f"Storage bucket error: {e}")
 
+        # For sandbox: pass db=None so CheatDetector.hydrate() is a no-op (no blocking Firestore GET)
         cheat_detector = CheatDetector(
-            session_id=session_id, db=db, bucket=bucket, api_key=GEMINI_API_KEY,
-            model_id=TEXT_MODEL_ID
+            session_id=session_id, db=None if is_sandbox else db, bucket=bucket,
+            api_key=GEMINI_API_KEY, model_id=TEXT_MODEL_ID
         )
 
-        # Hydrate from Firestore and connect to Gemini concurrently
-        was_hydrated, _ = await asyncio.gather(
-            asyncio.get_event_loop().run_in_executor(None, agent.hydrate_from_firestore),
-            gemini.connect(system_instruction=system_instr),
-        )
+        # For sandbox: skip hydrate_from_firestore (session was never persisted) — connect to Gemini immediately
+        if is_sandbox:
+            await gemini.connect(system_instruction=system_instr)
+            was_hydrated = False
+        else:
+            was_hydrated, _ = await asyncio.gather(
+                asyncio.get_event_loop().run_in_executor(None, agent.hydrate_from_firestore),
+                gemini.connect(system_instruction=system_instr),
+            )
 
-        # ── GREETING or RESUME ─────────────────────────────────────────
         if was_hydrated:
-            # Reconnection: resume from stored state
             print(f"Session {session_id}: RESUMING from {agent.current_state.value}")
             await websocket.send_json(
                 {
@@ -549,7 +574,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     "metadata": agent.metadata,
                 }
             )
-            # Send saved code back to the editor
             if agent._candidate_code:
                 await websocket.send_json({
                     "type": "restore_code",
@@ -570,21 +594,18 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     "metadata": agent.metadata,
                 }
             )
-            # Single send — two separate turn_complete=True calls causes Gemini to greet twice
             combined_greeting = f"[SYSTEM] {agent.get_system_instruction()}"
             if greeting_msg:
                 combined_greeting += f"\n\n{greeting_msg}"
             await gemini.send_text(combined_greeting)
 
-        # Receiver loop
         async def receive_from_gemini():
-            text_buffer = ""  # accumulates text chunks within one Gemini turn
+            text_buffer = "" 
             try:
                 async for message in gemini.listen():
                     if message["type"] == "turn_complete":
-                        text_buffer = ""  # reset per turn boundary
+                        text_buffer = ""  
                         await websocket.send_json({"type": "turn_complete"})
-                        # Check if session ended during this turn boundary
                         if agent.current_state == AgentState.COMPLETED:
                             print(f"[Gemini] Session ended logically. Closing receiver loop.")
                             break
@@ -622,30 +643,33 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             except Exception as e:
                 print(f"Receive loop error: {e}")
 
-        # Forwarder loops for different vision sources
         screen_task: Optional[asyncio.Task] = None
         webcam_task: Optional[asyncio.Task] = None
         last_frame_time = time.time()
+        # Track whether a violation overlay is currently active per source
+        last_violation_sent: dict = {"screen": False, "webcam": False}
 
         async def analyze_frame_bg(frame_data: str, source: str = "screen"):
             """Vision check for cheating."""
             try:
-                # Add a timeout to prevent hanging analysis tasks
                 v = await asyncio.wait_for(cheat_detector.process_frame(frame_data, source), timeout=10.0)
                 if v is None:
-                    return # Skipped frame, do nothing
-
-                if v is False:
-                    # Explicitly notify that the current frame is clean
-                    await websocket.send_json({
-                        "type": "state_update",
-                        "payload": agent.current_state.value,
-                        "metadata": agent.metadata,
-                        "violation": None,
-                        "is_webcam": source == "webcam"
-                    })
                     return
 
+                if v is False:
+                    # Only send a clear update if we previously surfaced a violation overlay
+                    if last_violation_sent[source]:
+                        last_violation_sent[source] = False
+                        await websocket.send_json({
+                            "type": "state_update",
+                            "payload": agent.current_state.value,
+                            "metadata": agent.metadata,
+                            "violation": None,
+                            "is_webcam": source == "webcam"
+                        })
+                    return
+
+                last_violation_sent[source] = True
                 severity = v.get("severity", "FLAG")
                 reason = v.get("reason", "Suspicious activity")
                 
@@ -660,7 +684,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             "payload": agent.current_state.value,
                             "screenRequired": agent.current_state in SCREEN_REQUIRED_STATES,
                             "metadata": agent.metadata,
-                            "violation": v # Send box/prob details
+                            "violation": v 
                         }
                     )
                     await gemini.send_text_urgent(
@@ -686,7 +710,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                         await gemini.send_text_urgent(scripted)
                     await agent.save_final_report()
                 else:
-                    # FLAG level (low probability or early strike) - still show to candidate
                     await websocket.send_json(
                         {
                             "type": "state_update",
@@ -717,7 +740,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                         event_type = data.get("payload")
                         event_data = data.get("data")
 
-                        # ── Candidate signals: route to AI as a hint, NOT direct transition ──
                         _SIGNAL_EVENTS = {
                             "candidate_signal",
                             "approach_accepted",
@@ -727,19 +749,16 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             "timer_expired",
                         }
 
-                        # Phase triggers
                         if event_type in _SIGNAL_EVENTS:
                             if event_type == "candidate_signal" and isinstance(event_data, dict):
                                 signal = event_data.get("signal", "")
                                 if signal == "paste":
-                                    # Silent cheat log — do NOT forward to Gemini (avoids latency)
                                     await agent.record_cheat_event(
                                         "large_paste",
                                         {"char_count": event_data.get("charCount", 0)},
                                     )
                                     continue
                                 elif signal == "typing":
-                                    # Reset silence timer — no agent speech
                                     await agent.handle_event("typing_activity", None)
                                     continue
                                 signal_text = signal or "The candidate pressed a button."
@@ -750,7 +769,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             )
                             continue
 
-                        # ── Legitimate direct events ───
                         old_state = agent.current_state
                         scripted = await agent.handle_event(event_type, event_data)
                         new_state = agent.current_state
@@ -764,11 +782,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             }
                         )
 
-                        # Conversation states where the model may be mid-turn when
-                        # a transition fires — use urgent send to interrupt immediately.
-                        # Include GREETING so that GREETING → PROBLEM_DELIVERY
-                        # interrupts Synth's greeting speech immediately rather than
-                        # queuing behind the current turn_complete.
                         _CONVERSATION_STATES = {
                             AgentState.GREETING,
                             AgentState.THINK_TIME, AgentState.APPROACH_LISTEN,
@@ -779,8 +792,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
 
                         if new_state != old_state:
                             sys_instr = f"[SYSTEM] {agent.get_system_instruction()}"
-                            # For cheating termination, send ONE concise message — avoid two
-                            # conflicting urgent sends that would make Gemini speak twice.
                             is_cheat_term = (
                                 new_state == AgentState.COMPLETED
                                 and agent.metadata.get("terminated_for_cheating")
@@ -788,7 +799,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             if is_cheat_term:
                                 await gemini.send_text_urgent(sys_instr)
                             elif event_type in _URGENT_EVENTS:
-                                # For other urgent events (screen loss, tab warn) include scripted
                                 merged = f"{sys_instr}\n\n{scripted}" if scripted else sys_instr
                                 await gemini.send_text_urgent(merged)
                             elif old_state in _CONVERSATION_STATES:
@@ -819,7 +829,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                             AgentState.HINT_DELIVERY,
                         ):
                             snippet = code_text[-3000:] if len(code_text) > 3000 else code_text
-                            # Context update
                             await gemini.send_context(
                                 f"[SYSTEM: CANDIDATE CODE UPDATE]\n```\n{snippet}\n```"
                             )
@@ -849,7 +858,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 if webcam_task: webcam_task.cancel()
                 print(f"Forwarder tasks cleaned up for {session_id}")
 
-        # Timer watcher
         async def watch_agent_timer():
             try:
                 while True:
@@ -871,7 +879,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
             except Exception as e:
                 print(f"Timer watcher error: {e}")
 
-        # ── Run tasks ───────────────────────────────────────────────────
         tasks = [
             asyncio.create_task(receive_from_gemini()),
             asyncio.create_task(forward_client_to_gemini()),
@@ -888,25 +895,21 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         except Exception:
             pass
     finally:
-        # Persist session state for resumption or mark as completed
         if db and agent:
             try:
                 if agent.current_state == AgentState.COMPLETED:
-                    # Interview finished or terminated — mark as final
                     update_data = {
                         "status": "COMPLETED",
                         "endedAt": datetime.utcnow().isoformat(),
                         "endReason": "completed",
                         "currentQuestionIndex": agent.current_question_index,
                     }
-                    # Persist metadata so the blocking check can find terminated_for_cheating
                     if agent.metadata.get("terminated_for_cheating") or agent.metadata.get("terminated_screen_loss"):
                         persist_meta = {**agent.metadata, "hint_index": agent.hint_index}
                         update_data["metadata"] = persist_meta
                     db.collection("sessions").document(session_id).update(update_data)
                     print(f"Session {session_id}: ended (COMPLETED, cheating={agent.metadata.get('terminated_for_cheating', False)})")
                 else:
-                    # Network drop — save state + disconnectedAt for the 60s resumption window
                     persist_meta = {**agent.metadata, "hint_index": agent.hint_index}
                     if agent.previous_state:
                         persist_meta["previous_state"] = agent.previous_state.value
@@ -932,9 +935,6 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 await websocket.close()
         except Exception:
             pass
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────
 
 
 def _build_system_instruction(session_info: dict, questions: list) -> str:
@@ -978,6 +978,7 @@ BEHAVIORAL RULES (follow strictly):
 - After code is written, always ask: "What's the time and space complexity of this solution? Can we do better?"
 - After optimization discussion, ask: "Did you recognize the pattern this problem falls under?"
 - After each question (except the last), transition smoothly without saying goodbye — just move on to the next problem.
+- Proactive Multimodality: Use the vision feed to provide proactive feedback. If the candidate stops typing and looks at a specific line of code for a few seconds, ask: "I see you're looking at that section—would you like to discuss the trade-offs there?" or "I see you're heading toward an O(n²) approach—do you think we could find a linear time solution?"
 - NEVER hallucinate or make up facts about the problem. If you are unsure, ask the candidate.
 - NEVER answer for the candidate or reveal solutions. Your role is to probe, not teach.
 - NEVER ignore a direct question from the candidate — engage briefly, then redirect professionally.
@@ -987,6 +988,7 @@ ENVIRONMENT (critical — never contradict these):
 - The candidate uses a browser-based platform — everything is in one browser tab.
 - A Monaco code editor (same as VS Code) is embedded on the LEFT side — ALWAYS visible. Never tell them to "open" any editor.
 - When a problem is assigned, it appears automatically in the editor. You do not need to describe it verbally.
+- Vision Awareness: You have a real-time vision feed of the candidate's screen and webcam. Use this to provide proactive, multimodal feedback and to detect if the candidate looks confused or stuck.
 - The candidate's code is visible to you in real time via [SYSTEM: CANDIDATE CODE UPDATE] messages.
 
 RESPONSE RULES:
@@ -1009,7 +1011,7 @@ _ALLOWED_TRANSITIONS = {
 
 # Map target state values to the event names expected by agent.handle_event
 _STATE_TO_EVENT = {
-    "APPROACH_LISTEN": "candidate_ready",  # from PROBLEM_DELIVERY via I Understand button
+    "APPROACH_LISTEN": "candidate_ready",
     "CODING": "approach_accepted",
     "TESTING": "coding_finished",
     "HINT_DELIVERY": "hint_requested",
@@ -1017,8 +1019,6 @@ _STATE_TO_EVENT = {
     "COMPLETED": "optimization_finished",
 }
 
-# Minimum seconds a phase must last before advance_phase is accepted.
-# Prevents speed-running (both by candidates and by the LLM).
 _MIN_PHASE_DURATION = {
     AgentState.PROBLEM_DELIVERY: 30,  # At least 30s to read + ask questions
     AgentState.APPROACH_LISTEN: 45,  # At least 45s discussing approach
@@ -1054,7 +1054,6 @@ async def _handle_tool_call(
             print(f"advance_phase REJECTED: {msg}")
             return msg
 
-        # ── Enforce minimum phase duration ───────────────────────────
         min_secs = _MIN_PHASE_DURATION.get(agent.current_state, 0)
         if min_secs > 0:
             from datetime import datetime
@@ -1074,7 +1073,6 @@ async def _handle_tool_call(
         if not event:
             return f"No event mapping for target {target_str}."
 
-        # Handle the hint_given special case: coming back from HINT_DELIVERY
         if agent.current_state == AgentState.HINT_DELIVERY and target_str == "CODING":
             event = "hint_given"
 
@@ -1089,15 +1087,11 @@ async def _handle_tool_call(
         )
         print(f"advance_phase OK: -> {agent.current_state.value} ({reason})")
 
-        # When interview completes, persist final code and fire async scorecard + email
         if agent.current_state == AgentState.COMPLETED and not agent.metadata.get("terminated_for_cheating"):
             asyncio.create_task(
                 _generate_and_email_scorecard(agent, websocket)
             )
 
-        # Return system instruction + scripted message as the tool response.
-        # send_tool_response (called by the caller) will carry this as the single
-        # turn_complete=True trigger — no separate send_text needed.
         sys_instr = f"[SYSTEM] {agent.get_system_instruction()}"
         if scripted:
             return f"{sys_instr}\n\n{scripted}"
@@ -1112,7 +1106,6 @@ async def _handle_tool_call(
 
 
 async def _generate_and_email_scorecard(agent: "InterviewAgent", websocket: WebSocket) -> None:
-    """Generates and emails scorecard (async)."""
     try:
         if not db:
             return
@@ -1122,7 +1115,6 @@ async def _generate_and_email_scorecard(agent: "InterviewAgent", websocket: WebS
             return
         data = doc.to_dict()
 
-        # Resolve question: prefer last question from multi-question session
         question_ids = data.get("questionIds") or [data.get("questionId", "two-sum")]
         last_idx = max(0, agent.current_question_index - 1) if agent.current_question_index > 0 else len(question_ids) - 1
         question = get_question(question_ids[min(last_idx, len(question_ids) - 1)])
@@ -1132,7 +1124,6 @@ async def _generate_and_email_scorecard(agent: "InterviewAgent", websocket: WebS
         language = data.get("lastTestLanguage", "python")
         cheat_events = data.get("cheatEvents", meta.get("cheat_events", []))
 
-        # Persist final code snapshot
         final_code = agent._candidate_code
         try:
             db.collection("sessions").document(session_id).update({
@@ -1153,19 +1144,16 @@ async def _generate_and_email_scorecard(agent: "InterviewAgent", websocket: WebS
             cheat_events=cheat_events,
         )
 
-        # Persist scorecard
         try:
             db.collection("sessions").document(session_id).update({"scorecard": scorecard})
         except Exception:
             pass
 
-        # Notify frontend
         try:
             await websocket.send_json({"type": "scorecard", "payload": scorecard})
         except Exception:
             pass
 
-        # Email candidate
         await send_scorecard_email(
             to_email=data.get("candidateEmail", ""),
             scorecard=scorecard,
