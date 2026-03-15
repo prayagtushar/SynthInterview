@@ -19,11 +19,11 @@ async def send_invite_email(
     session_id: str,
     difficulty: str,
     topics: list,
-) -> bool:
-    """Sends interview invitation email."""
+) -> tuple[bool, str]:
+    """Sends interview invitation email. Returns (success, error_message)."""
     if not _smtp_configured():
         logger.warning("SMTP not configured — skipping invite email to %s", to_email)
-        return False
+        return False, "SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS in .env"
 
     session_link = f"{os.getenv('APP_URL', 'http://localhost:3000')}/session?id={session_id}"
     topics_str = ", ".join(topics) if topics else "General Algorithms"
@@ -125,11 +125,11 @@ async def send_invite_email(
 async def send_recruiter_invite_email(
     to_email: str,
     invite_link: str,
-) -> bool:
-    """Sends recruiter portal invite email with magic link."""
+) -> tuple[bool, str]:
+    """Sends recruiter portal invite email with magic link. Returns (success, error_message)."""
     if not _smtp_configured():
         logger.warning("SMTP not configured — skipping recruiter invite email to %s", to_email)
-        return False
+        return False, "SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS in .env"
 
     html = f"""
 <!DOCTYPE html>
@@ -339,40 +339,59 @@ async def send_scorecard_email(
 </html>
 """.strip()
 
-    return await _send(
+    ok, _ = await _send(
         to_email=to_email,
         subject=f"Your SynthInterview Scorecard — {question_title}",
         html=html,
     )
+    return ok  # scorecard callers only need bool
 
 
-async def _send(to_email: str, subject: str, html: str) -> bool:
-    """SMTP send via aiosmtplib."""
+def _send_sync(
+    to_email: str,
+    subject: str,
+    html: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_pass: str,
+    email_from: str,
+) -> None:
+    """Synchronous SMTP send via stdlib smtplib (runs in a thread)."""
+    import smtplib
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = email_from
+    msg["To"] = to_email
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(smtp_user, smtp_pass)
+        smtp.sendmail(email_from, [to_email], msg.as_string())
+
+
+async def _send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    """SMTP send. Returns (success, error_message)."""
+    import asyncio
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+    email_from = os.getenv("EMAIL_FROM", "") or smtp_user
+
     try:
-        import aiosmtplib
-
-        smtp_host = os.getenv("SMTP_HOST", "")
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        smtp_user = os.getenv("SMTP_USER", "")
-        smtp_pass = os.getenv("SMTP_PASS", "")
-        email_from = os.getenv("EMAIL_FROM", "") or smtp_user
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = email_from
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html"))
-
-        await aiosmtplib.send(
-            msg,
-            hostname=smtp_host,
-            port=smtp_port,
-            username=smtp_user,
-            password=smtp_pass,
-            start_tls=True,
+        await asyncio.to_thread(
+            _send_sync,
+            to_email, subject, html,
+            smtp_host, smtp_port, smtp_user, smtp_pass, email_from,
         )
         logger.info("Email sent to %s: %s", to_email, subject)
-        return True
+        return True, ""
     except Exception as e:
         logger.error("Failed to send email to %s: %s", to_email, e)
-        return False
+        return False, str(e)

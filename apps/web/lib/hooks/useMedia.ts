@@ -135,7 +135,7 @@ export function useMedia({
       } catch (err) {
         console.error("Frame capture error:", err);
       }
-    }, 200);
+    }, 2000);
   };
 
   const acquireMediaStreams = async (): Promise<{
@@ -159,18 +159,19 @@ export function useMedia({
 
       // Start webcam frame interval (for Gemini proctoring)
       if (webcamIntervalRef.current) clearInterval(webcamIntervalRef.current);
+      // Allocate canvas once and reuse it to avoid GC pressure
+      const webcamCanvas = document.createElement("canvas");
+      webcamCanvas.width = 640;
+      webcamCanvas.height = 480;
+      const webcamCtx = webcamCanvas.getContext("2d");
       webcamIntervalRef.current = setInterval(async () => {
         const video = faceVideoRef.current;
         if (!video || video.readyState < 2) return;
         try {
           const bmp = await createImageBitmap(video);
-          const canvas = document.createElement("canvas");
-          canvas.width = 640;
-          canvas.height = 480;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(bmp, 0, 0, 640, 480);
-            const b64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+          if (webcamCtx) {
+            webcamCtx.drawImage(bmp, 0, 0, 640, 480);
+            const b64 = webcamCanvas.toDataURL("image/jpeg", 0.8).split(",")[1];
             onFrameData(b64, "webcam");
           }
           bmp.close();

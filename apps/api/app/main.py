@@ -269,7 +269,7 @@ async def send_invite(session_id: str, body: SendInviteRequest):
     original = _os.environ.get("APP_URL")
     _os.environ["APP_URL"] = app_url
 
-    sent = await send_invite_email(
+    sent, err = await send_invite_email(
         to_email=data.get("candidateEmail", ""),
         session_id=session_id,
         difficulty=data.get("difficulty", "Medium"),
@@ -282,19 +282,19 @@ async def send_invite(session_id: str, body: SendInviteRequest):
         _os.environ.pop("APP_URL", None)
 
     if not sent:
-        return {"success": False, "message": "Email not sent — SMTP not configured or send failed. Copy the link manually."}
+        return {"success": False, "message": err or "Email not sent — copy the link manually."}
     return {"success": True, "message": f"Invite sent to {data.get('candidateEmail')}"}
 
 
 @app.post("/send-recruiter-invite")
 async def send_recruiter_invite(body: SendRecruiterInviteRequest):
     """Sends a recruiter portal invite email with a magic link."""
-    sent = await send_recruiter_invite_email(
+    sent, err = await send_recruiter_invite_email(
         to_email=body.email,
         invite_link=body.inviteLink,
     )
     if not sent:
-        return {"success": False, "message": "Email not sent — SMTP not configured or send failed."}
+        return {"success": False, "message": err or "Email not sent — SMTP not configured or send failed."}
     return {"success": True, "message": f"Recruiter invite sent to {body.email}"}
 
 
@@ -457,15 +457,18 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
     gemini: Optional[GeminiLiveClient] = None
     agent: Optional["InterviewAgent"] = None
 
+    # Sandbox sessions (no real session ID) skip all Firestore I/O to start fast.
+    is_sandbox = session_id.startswith("sandbox-")
+
     try:
         sdata: Optional[dict] = None
-        if db:
+        if not is_sandbox and db:
             doc = db.collection("sessions").document(session_id).get()
             if doc.exists:
                 sdata = doc.to_dict()
                 stored_status = sdata.get("status", "IDLE")
                 stored_meta = sdata.get("metadata", {})
-                
+
                 if stored_status == "COMPLETED" and (
                     stored_meta.get("terminated_for_cheating")
                     or stored_meta.get("terminated_screen_loss")
@@ -478,7 +481,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     })
                     await websocket.close()
                     return
-                
+
                 disconnected_at = sdata.get("disconnectedAt")
                 if (
                     stored_status not in ("IDLE", "COMPLETED")
@@ -502,23 +505,7 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                     except Exception as e:
                         print(f"Session {session_id}: Error parsing disconnectedAt: {e}")
 
-        session_info: Optional[dict] = sdata 
-        if db and session_info is None:
-            question = get_question("two-sum")
-            session_info = {
-                "candidateEmail": "guest@demo.com",
-                "difficulty": "Easy",
-                "topics": ["Arrays", "HashMaps"],
-                "questionId": question["id"],
-            }
-            db.collection("sessions").document(session_id).set(
-                {
-                    **session_info,
-                    "sessionId": session_id,
-                    "createdAt": datetime.utcnow().isoformat(),
-                    "status": "IDLE",
-                }
-            )
+        session_info: Optional[dict] = sdata
         if session_info is None:
             question = get_question("two-sum")
             session_info = {
@@ -527,6 +514,16 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
                 "topics": ["Arrays", "HashMaps"],
                 "questionId": question["id"],
             }
+            # Only persist to Firestore for real (non-sandbox) sessions
+            if db and not is_sandbox:
+                db.collection("sessions").document(session_id).set(
+                    {
+                        **session_info,
+                        "sessionId": session_id,
+                        "createdAt": datetime.utcnow().isoformat(),
+                        "status": "IDLE",
+                    }
+                )
 
         question_ids = session_info.get("questionIds") or [session_info.get("questionId", "two-sum")]
         questions = [get_question(qid) for qid in question_ids]
@@ -551,15 +548,21 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         except Exception as e:
             print(f"Storage bucket error: {e}")
 
+        # For sandbox: pass db=None so CheatDetector.hydrate() is a no-op (no blocking Firestore GET)
         cheat_detector = CheatDetector(
-            session_id=session_id, db=db, bucket=bucket, api_key=GEMINI_API_KEY,
-            model_id=TEXT_MODEL_ID
+            session_id=session_id, db=None if is_sandbox else db, bucket=bucket,
+            api_key=GEMINI_API_KEY, model_id=TEXT_MODEL_ID
         )
 
-        was_hydrated, _ = await asyncio.gather(
-            asyncio.get_event_loop().run_in_executor(None, agent.hydrate_from_firestore),
-            gemini.connect(system_instruction=system_instr),
-        )
+        # For sandbox: skip hydrate_from_firestore (session was never persisted) — connect to Gemini immediately
+        if is_sandbox:
+            await gemini.connect(system_instruction=system_instr)
+            was_hydrated = False
+        else:
+            was_hydrated, _ = await asyncio.gather(
+                asyncio.get_event_loop().run_in_executor(None, agent.hydrate_from_firestore),
+                gemini.connect(system_instruction=system_instr),
+            )
 
         if was_hydrated:
             print(f"Session {session_id}: RESUMING from {agent.current_state.value}")
@@ -643,24 +646,30 @@ async def live_socket(websocket: WebSocket, session_id: str) -> None:
         screen_task: Optional[asyncio.Task] = None
         webcam_task: Optional[asyncio.Task] = None
         last_frame_time = time.time()
+        # Track whether a violation overlay is currently active per source
+        last_violation_sent: dict = {"screen": False, "webcam": False}
 
         async def analyze_frame_bg(frame_data: str, source: str = "screen"):
             """Vision check for cheating."""
             try:
                 v = await asyncio.wait_for(cheat_detector.process_frame(frame_data, source), timeout=10.0)
                 if v is None:
-                    return 
-
-                if v is False:
-                    await websocket.send_json({
-                        "type": "state_update",
-                        "payload": agent.current_state.value,
-                        "metadata": agent.metadata,
-                        "violation": None,
-                        "is_webcam": source == "webcam"
-                    })
                     return
 
+                if v is False:
+                    # Only send a clear update if we previously surfaced a violation overlay
+                    if last_violation_sent[source]:
+                        last_violation_sent[source] = False
+                        await websocket.send_json({
+                            "type": "state_update",
+                            "payload": agent.current_state.value,
+                            "metadata": agent.metadata,
+                            "violation": None,
+                            "is_webcam": source == "webcam"
+                        })
+                    return
+
+                last_violation_sent[source] = True
                 severity = v.get("severity", "FLAG")
                 reason = v.get("reason", "Suspicious activity")
                 

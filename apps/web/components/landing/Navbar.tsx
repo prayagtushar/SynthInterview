@@ -3,13 +3,15 @@
 import React from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Terminal, LayoutDashboard } from "lucide-react";
+import { Terminal, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/context/AuthContext";
 
 export default function Navbar() {
-  const { user, isDemoMode, loading, signOut } = useAuth();
+  const { user, role, isDemoMode, loading, signOut } = useAuth();
   const router = useRouter();
+  const isAdmin = role === "admin";
+  const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -75,13 +77,24 @@ export default function Navbar() {
             <Terminal size={14} />
             Sandbox
           </Link>
-          <Link
-            href="/recruiter"
-            className="flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#fff] transition-all duration-300 shadow-[0_15px_30px_-10px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_40px_-5px_rgba(255,255,255,0.4)]"
-          >
-            <LayoutDashboard size={14} />
-            Console
-          </Link>
+          {hasRecruiterAccess && (
+            <Link
+              href="/recruiter"
+              className="flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#fff] transition-all duration-300 shadow-[0_15px_30px_-10px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_40px_-5px_rgba(255,255,255,0.4)]"
+            >
+              <LayoutDashboard size={14} />
+              Console
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 text-white/60 hover:text-white px-5 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all bg-white/5 border border-white/5 hover:border-white/20"
+            >
+              <ShieldCheck size={14} />
+              Admin
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

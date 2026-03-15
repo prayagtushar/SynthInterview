@@ -5,25 +5,27 @@ import { useRouter } from "next/navigation";
 import {
   doc,
   setDoc,
+  deleteDoc,
   collection,
   getDocs,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
-  Mail,
   Plus,
   CheckCircle2,
   AlertCircle,
   Users,
   LogOut,
-  Shield,
-  Activity,
   UserPlus,
   RefreshCcw,
+  Trash2,
+  ShieldCheck,
+  Mail,
+  ChevronRight,
 } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 import { useAuth } from "../../lib/context/AuthContext";
@@ -34,6 +36,15 @@ interface Recruiter {
   addedAt: Date;
 }
 
+const fadeUpVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+  },
+};
+
 function AdminDashboard() {
   const { user, signOut } = useAuth();
   const router = useRouter();
@@ -42,6 +53,7 @@ function AdminDashboard() {
   const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "failed">("idle");
   const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
   const [loadingRecruiters, setLoadingRecruiters] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   useEffect(() => {
@@ -74,13 +86,25 @@ function AdminDashboard() {
     }
   };
 
+  const removeRecruiter = async (recruiterEmail: string) => {
+    setRemoving(recruiterEmail);
+    try {
+      await deleteDoc(doc(db, "roles", recruiterEmail));
+      setRecruiters((prev) => prev.filter((r) => r.email !== recruiterEmail));
+    } catch (err) {
+      console.error("Failed to remove recruiter:", err);
+    } finally {
+      setRemoving(null);
+    }
+  };
+
   const sendInvite = async () => {
     if (!email.trim()) return;
     setSending(true);
     setEmailStatus("idle");
     try {
       const token = crypto.randomUUID().replace(/-/g, "");
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       await setDoc(doc(db, "invites", token), {
         email: email.trim().toLowerCase(),
@@ -98,9 +122,7 @@ function AdminDashboard() {
       });
       const data = await res.json();
       setEmailStatus(data.success ? "sent" : "failed");
-      if (data.success) {
-        setEmail("");
-      }
+      if (data.success) setEmail("");
     } catch (err) {
       console.error(err);
       setEmailStatus("failed");
@@ -115,197 +137,272 @@ function AdminDashboard() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-100 selection:text-black">
+    <main className="bg-[#030303] min-h-screen flex flex-col relative overflow-hidden text-zinc-100 selection:bg-white/30 selection:text-white">
+      {/* Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div
+          className="absolute top-[-20%] left-[-10%] w-[50%] h-[60%] bg-violet-600/15 rounded-full blur-[150px] animate-pulse"
+          style={{ animationDuration: "8s" }}
+        />
+        <div
+          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/15 rounded-full blur-[150px] animate-pulse"
+          style={{ animationDuration: "10s", animationDelay: "2s" }}
+        />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black/95" />
+      </div>
+
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-6">
-        <div className="max-w-7xl mx-auto flex justify-between items-center bg-[#18181b] border border-zinc-800 px-8 py-3 rounded-2xl shadow-2xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-6">
+        <div className="max-w-2xl mx-auto flex justify-between items-center bg-white/[0.02] backdrop-blur-2xl border border-white/5 py-3 px-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-black shrink-0 shadow-lg">
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-br from-white to-zinc-300 text-black shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
               <Zap size={18} fill="currentColor" />
             </div>
-            <span className="font-bold text-lg text-white tracking-tight">
-              Synth <span className="text-zinc-500 font-medium">Admin</span>
-            </span>
+            <span className="font-bold text-lg text-white tracking-tight uppercase">SYNTH</span>
           </Link>
+
           <div className="flex items-center gap-4">
+            <div className="px-4 py-1.5 text-xs font-bold text-white/40 rounded-full border border-white/5 bg-white/[0.02] uppercase tracking-widest">
+              Admin Panel
+            </div>
             <button
               onClick={handleSignOut}
-              className="px-5 py-2 hover:bg-zinc-800 text-xs font-bold text-zinc-400 hover:text-white transition-all flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-2 px-4 py-2 text-[11px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors rounded-xl hover:bg-white/5"
             >
-              <LogOut size={14} /> Sign Out
+              <LogOut size={13} /> Sign Out
             </button>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-8 pt-32 pb-24 grid lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Info */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-8 space-y-8 shadow-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 flex items-center justify-center font-bold text-xl">
-                {user?.email?.[0].toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Administrator</p>
-                <p className="text-sm font-bold truncate text-zinc-100">{user?.email}</p>
-              </div>
-            </div>
-            <div className="pt-6 border-t border-zinc-800 space-y-3">
-              <Link 
-                href="/recruiter"
-                className="flex items-center justify-between group p-4 border border-zinc-800 hover:border-zinc-600 transition-all bg-zinc-950 rounded-xl"
-              >
-                <div className="flex items-center gap-3">
-                  <Activity size={16} className="text-zinc-500 group-hover:text-white" />
-                  <span className="text-xs font-bold text-zinc-400 group-hover:text-white">Recruiter Portal</span>
-                </div>
-                <Plus size={16} className="text-zinc-600 group-hover:text-white" />
-              </Link>
-            </div>
+      {/* Page Content */}
+      <section className="flex-1 flex flex-col justify-center items-center px-6 py-28 relative z-10">
+        <div className="w-full max-w-2xl flex flex-col gap-5">
+
+        {/* Page Header */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUpVariants}
+          className="flex flex-col items-center text-center pb-4"
+        >
+          <div className="section-badge gap-2 mb-5">
+            <ShieldCheck size={14} /> Administrator Access
           </div>
+          <h1 className="section-title text-gradient mb-2">
+            Admin Panel
+          </h1>
+          <p className="text-white/50 text-base max-w-xs leading-relaxed font-medium">
+            Provision recruiter access and manage the active team.
+          </p>
+        </motion.div>
 
-          <div className="p-8 border border-zinc-800 bg-[#18181b] rounded-2xl">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6 px-1">Infrastructure</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 rounded-xl bg-zinc-950 border border-zinc-800">
-                <span className="text-[11px] font-bold text-zinc-400">API ENGINE</span>
-                <span className="text-[10px] font-black text-emerald-500/80 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> ONLINE
-                </span>
+        {/* Admin identity strip */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUpVariants}
+          className="flex items-center gap-4 bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4"
+        >
+          <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-sm text-white/60 shrink-0">
+            {user?.email?.[0].toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/40 mb-0.5">Signed in as</p>
+            <p className="text-sm font-semibold text-white/70 truncate">{user?.email}</p>
+          </div>
+          <Link
+            href="/recruiter"
+            className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-bold text-white/40 hover:text-white uppercase tracking-widest border border-white/5 hover:border-white/20 rounded-xl transition-all"
+          >
+            Recruiter Portal <ChevronRight size={12} />
+          </Link>
+        </motion.div>
+
+        {/* Invite Recruiter Card */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUpVariants}
+          className="relative group/card"
+        >
+          <div className="absolute -inset-px bg-gradient-to-b from-white/10 to-transparent rounded-[2rem] opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
+          <div className="bg-black/40 backdrop-blur-3xl border border-white/[0.08] rounded-[2rem] p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+            {/* Section header */}
+            <div className="flex items-center gap-4 mb-10">
+              <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 shrink-0">
+                <UserPlus size={18} />
               </div>
-              <div className="flex justify-between items-center p-3 rounded-xl bg-zinc-950 border border-zinc-800">
-                <span className="text-[11px] font-bold text-zinc-400">DATABASE</span>
-                <span className="text-[10px] font-black text-emerald-500/80 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> STABLE
-                </span>
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">Provision Access</h2>
+                <p className="text-sm text-white/50 font-medium mt-0.5">Send a 7-day invite link to a new recruiter</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Main Content Areas */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Section: Invite Recruiter */}
-          <section className="bg-[#18181b] border border-zinc-800 rounded-2xl p-10 md:p-12 shadow-2xl">
-            <div className="space-y-10">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-500">
-                  <UserPlus size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Provision Access</h2>
-                  <p className="text-sm text-zinc-500">Invite new recruiters to the platform</p>
-                </div>
-              </div>
-
-              <div className="space-y-6 max-w-md">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-400 ml-1">
-                    Email address
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      type="email"
-                      placeholder="recruiter@company.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="flex-1 bg-zinc-950 border border-zinc-800 focus:border-zinc-500 px-4 py-3 rounded-xl text-sm outline-none transition-all placeholder:text-zinc-700"
-                    />
-                    <button
-                      onClick={sendInvite}
-                      disabled={sending}
-                      className="bg-white hover:bg-zinc-100 text-black px-6 py-3 rounded-xl text-xs font-bold transition-all disabled:opacity-50 active:scale-[0.98] shadow-lg flex items-center gap-2"
-                    >
+            {/* Form */}
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest ml-1 flex items-center gap-2">
+                  <Mail size={12} /> Recruiter Email
+                </label>
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="email"
+                    placeholder="recruiter@company.com"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setEmailStatus("idle");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && sendInvite()}
+                    className="w-full h-12 bg-white/[0.02] border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-4 focus:ring-white/5 px-5 rounded-2xl text-sm outline-none transition-all placeholder:text-white/20 font-medium text-white"
+                  />
+                  <button
+                    onClick={sendInvite}
+                    disabled={sending || !email.trim()}
+                    className="group relative w-full h-14 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_40px_rgba(255,255,255,0.25)] disabled:opacity-40 active:scale-[0.98] text-xs uppercase tracking-widest overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                    <span className="relative z-10 flex items-center justify-center gap-2">
                       {sending ? <RefreshCcw size={14} className="animate-spin" /> : <Plus size={14} />}
-                      Invite
-                    </button>
-                  </div>
+                      Send Invite
+                    </span>
+                  </button>
                 </div>
+              </div>
 
+              <AnimatePresence>
                 {emailStatus === "sent" && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 text-emerald-500 bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-xl text-[11px] font-bold uppercase tracking-wider"
+                    key="sent"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-center gap-3 text-emerald-400 bg-emerald-500/[0.06] border border-emerald-500/20 px-5 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider"
                   >
-                    <CheckCircle2 size={14} /> Invite link dispatched
+                    <CheckCircle2 size={14} className="shrink-0" /> Invite dispatched successfully
                   </motion.div>
                 )}
                 {emailStatus === "failed" && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 text-red-500 bg-red-500/5 border border-red-500/10 p-3 rounded-xl text-[11px] font-bold uppercase tracking-wider"
+                    key="failed"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-center gap-3 text-red-400 bg-red-500/[0.06] border border-red-500/20 px-5 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider"
                   >
-                    <AlertCircle size={14} /> Failed to send invite
+                    <AlertCircle size={14} className="shrink-0" /> Failed to send — check API server
                   </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </div>
-          </section>
+          </div>
+        </motion.div>
 
-          {/* List: Recruiters */}
-          <section className="bg-[#18181b] border border-zinc-800 rounded-2xl p-10 md:p-12 shadow-2xl">
-            <div className="space-y-10">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-500">
-                    <Users size={20} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Active Team</h2>
-                    <p className="text-sm text-zinc-500">Manage recruiter permissions</p>
-                  </div>
+        {/* Active Recruiters Card */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUpVariants}
+          className="relative group/card"
+        >
+          <div className="absolute -inset-px bg-gradient-to-b from-white/10 to-transparent rounded-[2rem] opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
+          <div className="bg-black/40 backdrop-blur-3xl border border-white/[0.08] rounded-[2rem] p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+            {/* Section header */}
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 shrink-0">
+                  <Users size={18} />
                 </div>
-                <button
-                  onClick={loadRecruiters}
-                  className="p-3 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-all"
-                  title="Refresh list"
-                >
-                  <RefreshCcw size={16} className={loadingRecruiters ? "animate-spin" : ""} />
-                </button>
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">
+                    Active Team
+                    <span className="ml-3 text-[11px] font-bold text-white/20 align-middle">
+                      {recruiters.length > 0 && `${recruiters.length}`}
+                    </span>
+                  </h2>
+                  <p className="text-sm text-white/50 font-medium mt-0.5">Manage recruiter access permissions</p>
+                </div>
               </div>
+              <button
+                onClick={loadRecruiters}
+                disabled={loadingRecruiters}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white/40 hover:text-white uppercase tracking-widest border border-white/5 hover:border-white/20 rounded-xl transition-all disabled:opacity-40"
+                title="Refresh list"
+              >
+                <RefreshCcw size={12} className={loadingRecruiters ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
 
-              <div className="pt-2">
-                {loadingRecruiters ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-24 bg-zinc-950/50 border border-zinc-800/50 rounded-xl animate-pulse" />
-                    ))}
-                  </div>
-                ) : recruiters.length === 0 ? (
-                  <div className="text-center py-20 border border-zinc-800/50 border-dashed rounded-3xl bg-zinc-950/20">
-                    <p className="text-sm text-zinc-600 font-medium">No recruiters found in the collective</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {recruiters.map((r) => (
-                      <motion.div
-                        key={r.email}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl hover:border-zinc-700 transition-all flex justify-between items-center group shadow-sm hover:shadow-md"
-                      >
+            {/* List */}
+            {loadingRecruiters ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 bg-white/[0.02] border border-white/5 rounded-2xl animate-pulse" />
+                ))}
+              </div>
+            ) : recruiters.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+                <Users size={32} className="text-white/10 mb-4" />
+                <p className="text-sm font-medium text-white/30">No recruiters provisioned yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <AnimatePresence>
+                  {recruiters.map((r) => (
+                    <motion.div
+                      key={r.email}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/[0.06] hover:border-white/10 px-6 py-4 rounded-2xl transition-all group"
+                    >
+                      {/* Avatar + info */}
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[11px] font-bold text-white/50 shrink-0">
+                          {r.email[0].toUpperCase()}
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-zinc-100 truncate mb-1">{r.email}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
-                            <CheckCircle2 size={10} className="text-emerald-500/50" />
-                            Provisioned {r.addedAt.toLocaleDateString()}
+                          <p className="text-sm font-semibold text-white/80 truncate">{r.email}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
+                            <p className="text-xs font-bold text-white/40 uppercase tracking-wider">
+                              Active · Provisioned {r.addedAt.toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
-                        <div className="px-3 py-1 border border-zinc-800 bg-zinc-900 text-[9px] font-bold uppercase tracking-widest text-zinc-500 rounded-lg">
-                          Active
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
+                      </div>
+
+                      {/* Remove button */}
+                      <button
+                        onClick={() => removeRecruiter(r.email)}
+                        disabled={removing === r.email}
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white/30 hover:text-red-400 uppercase tracking-widest border border-transparent hover:border-red-500/20 hover:bg-red-500/[0.06] rounded-xl transition-all disabled:opacity-40 shrink-0"
+                      >
+                        {removing === r.email ? (
+                          <RefreshCcw size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                        Remove
+                      </button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-            </div>
-          </section>
+            )}
+          </div>
+        </motion.div>
+
         </div>
-      </div>
+      </section>
     </main>
   );
 }

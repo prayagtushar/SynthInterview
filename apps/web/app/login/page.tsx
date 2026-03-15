@@ -3,9 +3,18 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, KeyRound, AlertCircle, UserCheck, Shield, Sparkles } from "lucide-react";
+import { Zap, KeyRound, AlertCircle, UserCheck, LogIn } from "lucide-react";
 import { useAuth } from "../../lib/context/AuthContext";
 import Link from "next/link";
+
+const fadeUpVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+  },
+};
 
 function LoginContent() {
   const { role, loading, isDemoMode, signInWithGoogle, activateDemoCode } = useAuth();
@@ -18,8 +27,8 @@ function LoginContent() {
 
   useEffect(() => {
     if (loading) return;
-    if (role === "admin") router.replace("/admin");
-    else if (role === "recruiter") router.replace("/recruiter");
+    if (role === "admin") router.replace("/");
+    else if (role === "recruiter") router.replace("/");
     else if (isDemoMode) router.replace("/recruiter");
     else if (role === "candidate") router.replace("/");
   }, [loading, role, isDemoMode, router]);
@@ -44,102 +53,84 @@ function LoginContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#030303] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <main className="bg-black min-h-screen relative overflow-hidden flex items-center justify-center p-4 sm:p-8">
-      {/* Immersive Background Effects */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-violet-600/20 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
+    <main className="bg-[#030303] min-h-screen flex flex-col relative overflow-hidden text-zinc-100 selection:bg-white/30 selection:text-white">
+      {/* Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[60%] bg-violet-600/15 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: "8s" }} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-600/15 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: "10s", animationDelay: "2s" }} />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black/95" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[440px] z-10 relative"
-      >
-        {/* Brand Header */}
-        <div className="flex flex-col items-center mb-10 text-center">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.1 }}
-          >
-            <Link href="/" className="relative group block mb-8">
-              <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl group-hover:bg-white/30 transition-all duration-500 opacity-0 group-hover:opacity-100" />
-              <div className="relative w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-b from-white to-zinc-200 text-black shadow-2xl transition-transform duration-500 group-hover:scale-105 active:scale-95 border border-white/40">
-                <Zap size={26} fill="currentColor" className="drop-shadow-sm" />
-              </div>
-            </Link>
-          </motion.div>
-          
-          <motion.h1 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-3"
-          >
-            Welcome to Synth
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="text-zinc-400 text-[15px] font-medium"
-          >
-            Technical assessments, elevated.
-          </motion.p>
+      {/* Navbar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-6">
+        <div className="max-w-2xl mx-auto flex justify-between items-center bg-white/[0.02] backdrop-blur-2xl border border-white/5 py-3 px-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-br from-white to-zinc-300 text-black shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+              <Zap size={18} fill="currentColor" />
+            </div>
+            <span className="font-bold text-lg text-white tracking-tight uppercase">SYNTH</span>
+          </Link>
+          <div className="px-4 py-1.5 text-xs font-bold text-white/40 rounded-full border border-white/5 bg-white/[0.02] uppercase tracking-widest">
+            Sign In
+          </div>
         </div>
+      </nav>
 
-        {/* Main Card */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="relative group/card"
-        >
-          {/* Animated Card Border Glow */}
-          <div className="absolute -inset-px bg-gradient-to-b from-white/10 to-transparent rounded-[24px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
-          
-          <div className="bg-black/40 backdrop-blur-2xl border border-white/[0.08] rounded-[24px] p-8 md:p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] relative overflow-hidden">
-            {/* Inner top highlight */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
-            
-            <div className="space-y-8 relative z-10">
-              <AnimatePresence>
-                {invitedEmail && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                    exit={{ opacity: 0, height: 0, scale: 0.9 }}
-                    className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center gap-3 overflow-hidden origin-top"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
-                      <UserCheck className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-0.5">Invite Approved</p>
-                      <p className="text-xs text-emerald-500/80 truncate font-medium">
-                        {invitedEmail}
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      {/* Page Content */}
+      <section className="flex-1 flex flex-col justify-center items-center px-6 py-28 relative z-10">
+        <div className="w-full max-w-lg flex flex-col gap-5">
+
+          {/* Page Header */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUpVariants}
+            className="flex flex-col items-center text-center pb-4"
+          >
+            <div className="section-badge gap-2 mb-5">
+              <LogIn size={14} /> Welcome Back
+            </div>
+            <h1 className="section-title text-gradient mb-2">
+              Sign In
+            </h1>
+            <p className="text-white/50 text-base max-w-xs leading-relaxed font-medium">
+              Technical assessments, elevated.
+            </p>
+          </motion.div>
+
+          {/* Invite banner */}
+          <AnimatePresence>
+            {invitedEmail && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex items-center gap-4 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-2xl px-6 py-4"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                  <UserCheck className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-0.5">Invite Approved</p>
+                  <p className="text-sm text-emerald-500/80 truncate font-medium">{invitedEmail}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
               {/* Social Login */}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={signingIn}
-                className="group relative w-full h-14 flex items-center justify-center gap-4 bg-white hover:bg-zinc-100 text-black font-bold rounded-xl transition-all disabled:opacity-50 active:scale-[0.98] text-[15px] shadow-[0_1px_2px_rgba(0,0,0,0.1)] overflow-hidden"
+                className="group relative w-full h-12 flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 text-black font-semibold rounded-xl transition-all disabled:opacity-50 active:scale-[0.98] text-[15px] shadow-[0_1px_2px_rgba(0,0,0,0.1)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 {signingIn ? (
@@ -155,21 +146,21 @@ function LoginContent() {
                 <span className="relative z-10">{signingIn ? "Authenticating..." : "Continue with Google"}</span>
               </button>
 
-              <div className="flex items-center gap-4 py-3">
+              <div className="flex items-center gap-4 py-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] select-none">or</span>
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
               </div>
 
               {/* Secure Form */}
-              <div className="space-y-7">
-                <div className="space-y-3">
+              <div className="space-y-6">
+                <div className="space-y-2">
                   <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.1em] ml-1 flex items-center gap-2">
                     Access Code
                   </label>
                   <div className="relative group/input">
-                    <div className="absolute left-[20px] top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within/input:text-white transition-colors duration-300 pointer-events-none">
-                      <KeyRound size={20} />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within/input:text-white transition-colors duration-300">
+                      <KeyRound size={18} />
                     </div>
                     <input
                       type="password"
@@ -177,8 +168,7 @@ function LoginContent() {
                       value={accessCode}
                       onChange={(e) => setAccessCode(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAccessCode()}
-                      style={{ paddingLeft: '56px' }}
-                      className={`w-full h-14 bg-white/[0.03] border ${error ? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/20' : 'border-white/10 focus:border-white/30 focus:ring-white/10'} hover:border-white/20 focus:ring-4 pr-6 rounded-xl text-[15px] text-white outline-none transition-all placeholder:text-zinc-500 font-medium tracking-wide`}
+                      className={`w-full h-12 bg-white/[0.03] border ${error ? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/20' : 'border-white/10 focus:border-white/30 focus:ring-white/10'} hover:border-white/20 focus:ring-4 pl-12 pr-4 rounded-xl text-sm text-white outline-none transition-all placeholder:text-zinc-600 font-medium`}
                     />
                     {error && (
                       <motion.div
@@ -194,33 +184,15 @@ function LoginContent() {
                 
                 <button
                   onClick={handleAccessCode}
-                  className="group relative w-full h-14 bg-zinc-900 overflow-hidden border border-white/5 hover:border-zinc-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] text-[14px] uppercase tracking-wider"
+                  className="group relative w-full h-12 bg-zinc-900 overflow-hidden border border-white/5 hover:border-white/20 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] text-[13px] uppercase tracking-wider"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    Sign In <Sparkles size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                    Sign In <LogIn size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                   </span>
                 </button>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Footer */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="mt-10 flex flex-col items-center gap-6"
-        >
-          <div className="flex items-center gap-3 py-2.5 px-5 rounded-full border border-white/5 bg-white/[0.02] backdrop-blur-sm">
-            <Shield size={14} className="text-zinc-400" />
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] select-none">
-              Enterprise-Grade Encryption
-            </span>
-          </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -229,7 +201,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="min-h-screen bg-[#030303] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
         </div>
       }

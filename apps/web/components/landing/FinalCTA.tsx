@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, UserCheck, Terminal, Lock, Activity } from "lucide-react";
+import { ArrowRight, UserCheck, Terminal, Lock, Activity, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/context/AuthContext";
@@ -22,6 +22,7 @@ const fadeUpVariants = {
 export default function FinalCTA() {
   const { role, isDemoMode } = useAuth();
   const router = useRouter();
+  const isAdmin = role === "admin";
   const hasRecruiterAccess = isDemoMode || role === "recruiter" || role === "admin";
 
   return (
@@ -81,7 +82,31 @@ export default function FinalCTA() {
             </div>
           </Link>
 
-          {hasRecruiterAccess ? (
+          {isAdmin ? (
+            <Link
+              href="/admin"
+              className="flex-1 flex flex-col items-start gap-8 p-10 lg:p-12 rounded-[2.5rem] border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/20 transition-all duration-500 group shadow-xl"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:scale-110 group-hover:border-white/30 group-hover:bg-white/[0.08] transition-all duration-500 mb-2 shadow-lg p-3.5">
+                <ShieldCheck size={24} />
+              </div>
+              <div className="space-y-3 mt-4">
+                <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-colors">
+                  Admin Panel
+                </h3>
+                <p className="text-white/50 text-base md:text-lg font-medium leading-relaxed group-hover:text-white/70 transition-colors">
+                  Invite recruiters and manage platform access.
+                </p>
+              </div>
+              <div className="mt-12 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-white/30 group-hover:text-white/60 transition-colors">
+                Open Panel{" "}
+                <ArrowRight
+                  size={14}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
+              </div>
+            </Link>
+          ) : hasRecruiterAccess ? (
             <Link
               href="/recruiter"
               className="flex-1 flex flex-col items-start gap-8 p-10 lg:p-12 rounded-[2.5rem] border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/20 transition-all duration-500 group shadow-xl"
