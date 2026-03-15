@@ -378,13 +378,16 @@ async def create_scorecard(session_id: str):
     except Exception:
         pass
 
-    email_sent = await send_scorecard_email(
-        to_email=data.get("candidateEmail", ""),
-        scorecard=scorecard,
-        question_title=question.get("title", "Coding Problem"),
-        final_code=meta.get("final_code", ""),
-        language=language,
-    )
+    email_sent = False
+    candidate_email = data.get("candidateEmail", "")
+    if candidate_email and candidate_email.lower() != "guest@demo.com":
+        email_sent = await send_scorecard_email(
+            to_email=candidate_email,
+            scorecard=scorecard,
+            question_title=question.get("title", "Coding Problem"),
+            final_code=meta.get("final_code", ""),
+            language=language,
+        )
 
     return {**scorecard, "email_sent": email_sent}
 

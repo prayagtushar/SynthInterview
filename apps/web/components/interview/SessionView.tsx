@@ -28,10 +28,14 @@ import { Overlays } from "./Overlays";
 
 export default function SessionView() {
   const searchParams = useSearchParams();
-  const sessionId = useMemo(
-    () => searchParams.get("id") || "default-session",
-    [searchParams],
-  );
+  const sessionId = useMemo(() => {
+    const id = searchParams.get("id");
+    if (id) return id;
+    
+    // Generate a unique sandbox ID if not provided
+    const randomHex = Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    return `sandbox-${randomHex}`;
+  }, [searchParams]);
 
   const {
     isConnected,
