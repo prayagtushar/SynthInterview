@@ -2,11 +2,12 @@
 
 import { Suspense } from "react";
 import SessionView from "../../components/interview/SessionView";
+import { SessionSkeleton } from "../../components/interview/SessionSkeleton";
 
 export default function SessionPage() {
   return (
     <main>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<SessionSkeleton />}>
         <SessionView />
       </Suspense>
     </main>

@@ -19,9 +19,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   stopScreenShare,
 }) => {
   return (
-    <div className="w-14 flex flex-col items-center py-4 border-r border-indigo-500/10 gap-6 bg-slate-950/80 backdrop-blur-xl z-20">
-      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-sm rounded-xl cursor-pointer select-none shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform">
-        S
+    <div className="w-14 flex flex-col items-center py-4 border-r border-blue-500/10 gap-6 bg-slate-950/80 backdrop-blur-xl z-20">
+      <div className="w-10 h-10 relative group cursor-pointer">
+        <div className="absolute inset-0 bg-blue-500/10 rounded-xl blur-[8px] opacity-20 group-hover:opacity-40 transition-opacity" />
+        <div className="relative w-full h-full bg-slate-900 border border-white/10 rounded-xl flex items-center justify-center shadow-2xl overflow-hidden group-hover:border-blue-500/50 transition-colors">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 text-blue-400 group-hover:scale-110 transition-transform duration-500">
+            <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4 12L12 16L20 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4 16L12 20L20 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 mt-2">

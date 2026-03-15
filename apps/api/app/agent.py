@@ -368,6 +368,8 @@ class InterviewAgent:
             "- To issue a violation warning: [WARN: reason] in text only.\n"
             "- NEVER tell the candidate to open a code editor, IDE, VS Code, terminal, or any external app. "
             "  A Monaco editor is already embedded in this browser page and is always visible to them.\n"
+            "- Vision Awareness: You have a real-time vision feed of the candidate's screen and webcam. Use this to provide proactive, multimodal feedback and to detect if the candidate looks confused or stuck.\n"
+            "- Proactive Multimodality: Use the vision feed to provide proactive feedback based on what the candidate is highlighting or looking at on their screen.\n"
             "- NEVER re-introduce yourself after the GREETING phase. You have already greeted the candidate.\n"
             "- NEVER repeat something you have already said in this conversation. Do not restate your own previous answers.\n"
             "- Do NOT say 'Great question!' or similar filler phrases more than once.\n"

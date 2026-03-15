@@ -329,7 +329,7 @@ export default function SessionView() {
 				inherit: true,
 				rules: [
 					{ token: 'comment', foreground: '4a5568', fontStyle: 'italic' },
-					{ token: 'keyword', foreground: 'c084fc' },
+					{ token: 'keyword', foreground: '60a5fa' },
 					{ token: 'string', foreground: '86efac' },
 					{ token: 'number', foreground: 'fbbf24' },
 					{ token: 'type', foreground: '67e8f9' },
@@ -340,9 +340,9 @@ export default function SessionView() {
 					'editor.background': '#09090b',
 					'editor.foreground': '#e2e8f0',
 					'editor.lineHighlightBackground': '#ffffff08',
-					'editor.selectionBackground': '#6366f140',
-					'editor.inactiveSelectionBackground': '#6366f120',
-					'editorCursor.foreground': '#a78bfa',
+					'editor.selectionBackground': '#3b82f640',
+					'editor.inactiveSelectionBackground': '#3b82f620',
+					'editorCursor.foreground': '#38bdf8',
 					'editorLineNumber.foreground': '#334155',
 					'editorLineNumber.activeForeground': '#94a3b8',
 					'editorIndentGuide.background': '#1e293b40',
@@ -425,13 +425,16 @@ export default function SessionView() {
 				});
 			}
 		},
-		[sendEvent, getLastCopied, setLastCopied],
+		[setLastCopied],
 	);
 
 	return (
-		<div className='flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans selection:bg-indigo-500/30'>
-			{/* Background radial glow */}
-			<div className='absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.05)_0%,transparent_50%)] pointer-events-none' />
+		<div
+			className={`min-h-[100dvh] bg-[#020202] text-slate-100 flex font-sans selection:bg-blue-500/30 selection:text-white ${
+				isConnected ? 'cursor-default' : 'cursor-wait'
+			}`}
+		>
+			<div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.05),transparent_50%)] pointer-events-none" />
 
 			<Overlays
 				currentState={currentState}
@@ -453,7 +456,7 @@ export default function SessionView() {
 				stopScreenShare={stopScreenShare}
 			/>
 
-			<div className='flex-1 flex flex-col min-w-0'>
+			<div className="flex-1 flex flex-col min-w-0">
 				<Header
 					currentState={currentState}
 					stateIcon={stateIcon}
@@ -476,7 +479,7 @@ export default function SessionView() {
 					sendEvent={sendEvent}
 				/>
 
-				<div className='flex-1 flex min-h-0 relative'>
+				<div className="flex-1 flex min-h-0 relative">
 					<EditorPanel
 						language={language}
 						code={code}
@@ -520,12 +523,12 @@ export default function SessionView() {
 			</div>
 
 			{webcamStream && (
-				<div className='absolute bottom-8 right-8 z-[60] overflow-hidden rounded-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(99,102,241,0.1)] w-56 h-40 bg-slate-900 group/webcam transition-all duration-300 hover:scale-105 hover:border-indigo-500/50'>
-					<div className='absolute top-3 left-3 z-[61] px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[8px] font-bold text-white tracking-widest opacity-0 group-hover/webcam:opacity-100 transition-opacity uppercase'>
+				<div className="absolute bottom-8 right-8 z-[60] overflow-hidden rounded-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(59,130,246,0.1)] w-56 h-40 bg-slate-900 group/webcam transition-all duration-300 hover:scale-105 hover:border-blue-500/50">
+					<div className="absolute top-3 left-3 z-[61] px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[8px] font-bold text-white tracking-widest opacity-0 group-hover/webcam:opacity-100 transition-opacity uppercase">
 						Active Proctor feed
 					</div>
 					<video
-						className='w-full h-full object-cover transform scale-x-[-1]'
+						className="w-full h-full object-cover transform scale-x-[-1]"
 						ref={(node) => {
 							if (node) {
 								// @ts-ignore - binding to ref from useMedia

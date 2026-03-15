@@ -86,10 +86,37 @@ export function useInterview(sessionId: string = 'default-session') {
 	}, []);
 
 	const sendEvent = useCallback(
-		(type: string, payload?: unknown) => {
+		(type: string, payload?: any) => {
 			send({ type: 'event', payload: type, data: payload });
+
+			// Robust Proctoring Persistence: Sync critical violations to REST API as well
+			const CRITICAL_PROCTORING_EVENTS = [
+				'tab_switch',
+				'cheating_attempt',
+				'screen_share_ended',
+				'face_lost',
+				'multiple_faces',
+				'phone_detected',
+				'ai_assistance_detected',
+			];
+
+			if (CRITICAL_PROCTORING_EVENTS.includes(type)) {
+				const API_BASE =
+					process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+				fetch(`${API_BASE}/sessions/${sessionId}/proctoring-event`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						type,
+						data: payload,
+						timestamp: new Date().toISOString(),
+					}),
+				}).catch((err) =>
+					console.error('[ProctoringSync] Failed to persist event:', err),
+				);
+			}
 		},
-		[send],
+		[send, sessionId],
 	);
 
 	const onTerminate = useCallback(

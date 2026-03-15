@@ -169,6 +169,49 @@ async def health():
     return {"status": "ok"}
 
 
+class ProctoringEvent(BaseModel):
+    type: str
+    data: Optional[dict] = None
+    timestamp: Optional[str] = None
+
+
+@app.post("/sessions/{session_id}/proctoring-event")
+async def record_proctoring_event(session_id: str, event: ProctoringEvent):
+    """Records a proctoring violation or activity event."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    
+    event_entry = {
+        "type": event.type,
+        "data": event.data or {},
+        "timestamp": event.timestamp or datetime.utcnow().isoformat(),
+        "clientIp": "rest-api",
+    }
+
+    try:
+        doc_ref = db.collection("sessions").document(session_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Atomically append to cheatEvents list
+        doc_ref.update({
+            "cheatEvents": firestore.ArrayUnion([event_entry])
+        })
+        
+        # If it's a tab switch, increment the counter in metadata too
+        if event.type == "tab_switch":
+            doc_data = doc.to_dict()
+            metadata = doc_data.get("metadata", {})
+            metadata["tab_switch_count"] = metadata.get("tab_switch_count", 0) + 1
+            doc_ref.update({"metadata": metadata})
+
+        return {"success": True}
+    except Exception as e:
+        print(f"Error recording proctoring event: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/sessions", response_model=SessionResponse)
 async def create_session(config: SessionConfig):
     if not db:
@@ -978,6 +1021,7 @@ BEHAVIORAL RULES (follow strictly):
 - After code is written, always ask: "What's the time and space complexity of this solution? Can we do better?"
 - After optimization discussion, ask: "Did you recognize the pattern this problem falls under?"
 - After each question (except the last), transition smoothly without saying goodbye — just move on to the next problem.
+- Proactive Multimodality: Use the vision feed to provide proactive feedback. If the candidate stops typing and looks at a specific line of code for a few seconds, ask: "I see you're looking at that section—would you like to discuss the trade-offs there?" or "I see you're heading toward an O(n²) approach—do you think we could find a linear time solution?"
 - NEVER hallucinate or make up facts about the problem. If you are unsure, ask the candidate.
 - NEVER answer for the candidate or reveal solutions. Your role is to probe, not teach.
 - NEVER ignore a direct question from the candidate — engage briefly, then redirect professionally.
@@ -987,6 +1031,7 @@ ENVIRONMENT (critical — never contradict these):
 - The candidate uses a browser-based platform — everything is in one browser tab.
 - A Monaco code editor (same as VS Code) is embedded on the LEFT side — ALWAYS visible. Never tell them to "open" any editor.
 - When a problem is assigned, it appears automatically in the editor. You do not need to describe it verbally.
+- Vision Awareness: You have a real-time vision feed of the candidate's screen and webcam. Use this to provide proactive, multimodal feedback and to detect if the candidate looks confused or stuck.
 - The candidate's code is visible to you in real time via [SYSTEM: CANDIDATE CODE UPDATE] messages.
 
 RESPONSE RULES:

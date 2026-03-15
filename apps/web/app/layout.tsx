@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Inter, Playfair_Display } from "next/font/google";
+import StructuredData from "@/components/seo/StructuredData";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,21 +18,46 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "SynthInterview — Real-time AI Coding Interviewer",
+  title: "SynthInterview — Objective AI Technical Interviews",
   description:
-    "Full technical coding interviews via voice and screen-share, powered by Gemini Live API. Watching your editor in real time, asking adaptive follow-ups.",
+    "Eliminate bias in technical hiring with SynthInterview's AI-powered coding interviews. Get objective assessments, live code analysis, and fraud detection at scale.",
   keywords: [
     "AI coding interview",
     "technical interview AI",
-    "Gemini Live API",
+    "objective technical assessment",
+    "bias-free hiring",
     "automated coding interview",
-    "real-time editor monitoring",
+    "real-time code analysis",
+    "technical screening tool",
+    "engineering hiring software",
+    "remote technical interviews",
+    "developer assessment platform",
   ],
   openGraph: {
-    title: "SynthInterview — Real-time AI Coding Interviewer",
+    title: "SynthInterview — Objective AI Technical Interviews",
     description:
-      "Full technical coding interviews via voice and screen-share, powered by Gemini Live API.",
+      "Eliminate bias in technical hiring with SynthInterview's AI-powered coding interviews. Get objective assessments, live code analysis, and fraud detection at scale.",
     type: "website",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "SynthInterview AI Technical Interview Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SynthInterview — Objective AI Technical Interviews",
+    description:
+      "Eliminate bias in technical hiring with SynthInterview's AI-powered coding interviews.",
+    images: ["/og-image.svg"],
+  },
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/apple-touch-icon.svg",
   },
 };
 
@@ -41,6 +67,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body
         className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-black text-white selection:bg-white selection:text-black`}
       >
+        <link rel="manifest" href="/site.webmanifest" />
+        <div className="noise" />
+        <div className="grid-bg" />
+        <StructuredData />
         {children}
       </body>
     </html>

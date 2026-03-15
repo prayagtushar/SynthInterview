@@ -45,10 +45,17 @@ export const ProgressFooter: React.FC<ProgressFooterProps> = ({
           const thisIdx = states.indexOf(s);
           const done = currentIdx > thisIdx;
           const active = s === currentState;
+          
+          const friendlyName = 
+            s === "PROBLEM_DELIVERY" ? "New Problem" : 
+            s === "TESTING" ? "Testing" :
+            s === "ENV_CHECK" ? "Setup" :
+            s.replace(/_/g, " ");
+
           return (
             <div
               key={s}
-              title={s}
+              title={friendlyName}
               className={`flex-1 h-0.5 rounded-full transition-all duration-500 ${
                 done
                   ? "bg-white"
