@@ -431,19 +431,20 @@ wheels = [
 
 [[package]]
 name = "firebase-admin"
-version = "7.2.0"
+version = "6.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachecontrol" },
     { name = "google-api-core", extra = ["grpc"], marker = "platform_python_implementation != 'PyPy'" },
+    { name = "google-api-python-client" },
     { name = "google-cloud-firestore", marker = "platform_python_implementation != 'PyPy'" },
     { name = "google-cloud-storage" },
     { name = "httpx", extra = ["http2"] },
     { name = "pyjwt", extra = ["crypto"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/b8/39f0278fbdbc962551a164e93e10cbba1a195231c93c08440f5f38deec16/firebase_admin-7.2.0.tar.gz", hash = "sha256:0c877c1316d7a213e1c91ae9be20b7b9e11c5889ae546a004e3ee4f119d940bb", size = 196213, upload-time = "2026-02-25T17:30:49.327Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/e9/18872c1032905f06d7dd0ae207085a83ca638d40b922accebf5e5bbf735e/firebase_admin-6.9.0.tar.gz", hash = "sha256:06496c3d1380a8f69e3817045b244ce8578d8ad19af3f85c510ac4d8fe0433ca", size = 117059, upload-time = "2025-06-05T19:03:39.916Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/82/6d1143f019dce79a884d1027b01dd9b122c4d862c197c3753999d298863d/firebase_admin-7.2.0-py3-none-any.whl", hash = "sha256:760b2138e49b4abeb3f0ea409e7ab5fbdaeca315b20750d968689d4bdd1d1b4e", size = 138000, upload-time = "2026-02-25T17:30:47.793Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/c2/74656081120255c79e613eade6059c43dd648dfad00798a4cec60fcaae34/firebase_admin-6.9.0-py3-none-any.whl", hash = "sha256:75c261c074dcf33a2bcc8366b94ad96255da3fe24079c30220186d489d553ad5", size = 139720, upload-time = "2025-06-05T19:03:37.835Z" },
 ]
 
 [[package]]
@@ -601,24 +602,23 @@ wheels = [
 
 [[package]]
 name = "google-cloud-firestore"
-version = "2.25.0"
+version = "2.23.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core", extra = ["grpc"] },
     { name = "google-auth" },
     { name = "google-cloud-core" },
-    { name = "grpcio" },
     { name = "proto-plus" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/84/4acfdc4d29de4eae4dd6ac1267611421c2a36975c473b2a86fd2e9752e75/google_cloud_firestore-2.25.0.tar.gz", hash = "sha256:9bca3b504f5473048eeab603b9bec69bbeffcdddc4e5fc65cdcc01b449628fc0", size = 621860, upload-time = "2026-03-12T19:31:06.062Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/9c/ec28ca4ec88fa89e41366316cf92c037feaa2c4200aa5d9da69fe011d2f6/google_cloud_firestore-2.23.0.tar.gz", hash = "sha256:a9cffba7cdc6101111d6d54cde22d521c98f9e7d415e67486b137fa16f06aa03", size = 615238, upload-time = "2026-01-14T23:50:54.574Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/f2/29abde0fcd98f32ce61fc2064a1a3e39b4e64746537409f8ea5521f79afb/google_cloud_firestore-2.25.0-py3-none-any.whl", hash = "sha256:c933a7696b7dd160953d60413ab9481387f6dd8367e77dd750d841689773104a", size = 416714, upload-time = "2026-03-12T19:30:36.674Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/99/2a627c8ea7ae72a686dda8bf2b79747362b425c237d2729eb76bcee55a25/google_cloud_firestore-2.23.0-py3-none-any.whl", hash = "sha256:19f2326cb466b0d52aed9fabbd89758be431f6ce18c422966cfdb8326b424314", size = 411195, upload-time = "2026-01-14T23:50:52.825Z" },
 ]
 
 [[package]]
 name = "google-cloud-storage"
-version = "3.4.1"
+version = "2.18.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core" },
@@ -628,9 +628,9 @@ dependencies = [
     { name = "google-resumable-media" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/ef/7cefdca67a6c8b3af0ec38612f9e78e5a9f6179dd91352772ae1a9849246/google_cloud_storage-3.4.1.tar.gz", hash = "sha256:6f041a297e23a4b485fad8c305a7a6e6831855c208bcbe74d00332a909f82268", size = 17238203, upload-time = "2025-10-08T18:43:39.665Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/b7/1554cdeb55d9626a4b8720746cba8119af35527b12e1780164f9ba0f659a/google_cloud_storage-2.18.2.tar.gz", hash = "sha256:aaf7acd70cdad9f274d29332673fcab98708d0e1f4dceb5a5356aaef06af4d99", size = 5532864, upload-time = "2024-08-08T21:59:02.358Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/6e/b47d83d3a35231c6232566341b0355cce78fd4e6988a7343725408547b2c/google_cloud_storage-3.4.1-py3-none-any.whl", hash = "sha256:972764cc0392aa097be8f49a5354e22eb47c3f62370067fb1571ffff4a1c1189", size = 290142, upload-time = "2025-10-08T18:43:37.524Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/da/95db7bd4f0bd1644378ac1702c565c0210b004754d925a74f526a710c087/google_cloud_storage-2.18.2-py2.py3-none-any.whl", hash = "sha256:97a4d45c368b7d401ed48c4fdfe86e1e1cb96401c9e199e419d289e2c0370166", size = 130466, upload-time = "2024-08-08T21:58:59.732Z" },
 ]
 
 [[package]]
@@ -1346,22 +1346,22 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosmtplib" },
-    { name = "elevenlabs" },
-    { name = "fastapi", specifier = ">=0.111.0" },
-    { name = "firebase-admin", specifier = ">=6.0.0" },
-    { name = "google-cloud-firestore", specifier = ">=2.16.0" },
-    { name = "google-cloud-storage", specifier = ">=2.17.0" },
-    { name = "google-genai" },
-    { name = "google-generativeai" },
-    { name = "httpx" },
-    { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "redis", specifier = ">=5.0.0" },
+    { name = "aiosmtplib", specifier = ">=5.1.0" },
+    { name = "elevenlabs", specifier = ">=2.39.0" },
+    { name = "fastapi", specifier = ">=0.135.1" },
+    { name = "firebase-admin", specifier = ">=6.5.0" },
+    { name = "google-cloud-firestore", specifier = "<2.24.0" },
+    { name = "google-cloud-storage", specifier = "<2.19.0" },
+    { name = "google-genai", specifier = ">=1.67.0" },
+    { name = "google-generativeai", specifier = ">=0.8.6" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pillow", specifier = ">=12.1.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "redis", specifier = ">=7.3.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
-    { name = "uvicorn", specifier = ">=0.29.0" },
-    { name = "weasyprint" },
+    { name = "uvicorn", specifier = ">=0.41.0" },
+    { name = "weasyprint", specifier = ">=68.1" },
 ]
 provides-extras = ["dev"]
 

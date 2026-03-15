@@ -47,3 +47,6 @@ pnpm-debug.log*
 
 # Misc
 *.pem
+
+# Firebase
+.firebase/
