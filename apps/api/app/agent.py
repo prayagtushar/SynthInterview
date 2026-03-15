@@ -174,7 +174,7 @@ class InterviewAgent:
         if state == AgentState.GREETING:
             q_count_text = f"{n_questions} coding question{'s' if n_questions != 1 else ''}"
             return (
-                f"[SYSTEM] Greet the candidate warmly. Tell them you are SYNTH, a senior engineer conducting their DSA interview today. "
+                f"ACTION: Greet the candidate warmly. Tell them you are SYNTH, a senior engineer conducting their DSA interview today. "
                 f"Mention they will complete {q_count_text} in this session. "
                 "Ask them to share their ENTIRE screen (not a browser tab) so the interview can begin. "
                 "Do NOT mention the code editor, opening any application, or the problem yet. "
@@ -189,15 +189,15 @@ class InterviewAgent:
                 self._problem_delivered_once = True
                 progress = f"Question {q_num} of {n_questions}" if n_questions > 1 else "Your question"
                 return (
-                    f"[SYSTEM] {progress} has just been loaded into the Monaco editor on the left of the candidate's screen. "
-                    "Say something like: 'I've loaded your problem into the editor — take a moment to read it through. "
+                    f"INSTRUCTION: {progress} has just been loaded into the Monaco editor on the left of the candidate's screen. "
+                    "ACTION: Say something like: 'I've loaded your problem into the editor — take a moment to read it through. "
                     "Ask me anything if you need clarification on the constraints or examples.' "
                     "Then STOP and LISTEN. Encourage them to think aloud or write pseudo-code first. "
                     "When they confirm they understand and are ready, output [ADVANCE: APPROACH_LISTEN] in text. Do NOT speak it."
                 )
             return (
-                f"[SYSTEM] Question {q_num} of {n_questions} is still in the editor. "
-                "Ask if they have any remaining questions. When they confirm they're ready, output [ADVANCE: APPROACH_LISTEN] in text."
+                "INSTRUCTION: Question {q_num} of {n_questions} is still in the editor. "
+                "ACTION: Ask if they have any remaining questions. When they confirm they're ready, output [ADVANCE: APPROACH_LISTEN] in text."
             )
 
         elif state == AgentState.THINK_TIME:
@@ -206,7 +206,7 @@ class InterviewAgent:
 
         elif state == AgentState.APPROACH_LISTEN:
             return (
-                "[SYSTEM] Ask them to walk through their approach before coding. "
+                "ACTION: Ask them to walk through their approach before coding. "
                 "Encourage them to mention the pattern they're using (e.g. 'Is this a Sliding Window approach?'). "
                 "Ask about time and space complexity of their proposed approach. "
                 "If they jump straight to code, ask: 'Can you walk me through the trade-offs of this approach first?'"
@@ -214,7 +214,7 @@ class InterviewAgent:
 
         elif state == AgentState.SCREEN_NOT_VISIBLE:
             return (
-                "[SYSTEM] URGENT: The candidate's screen share has stopped. "
+                "ACTION (URGENT): The candidate's screen share has stopped. "
                 "Say immediately: 'I can no longer see your screen. "
                 "Please share your entire screen again to continue the interview.'"
             )
@@ -222,9 +222,9 @@ class InterviewAgent:
         elif state == AgentState.CODING:
             if self.previous_state == AgentState.ENV_CHECK:
                 title = q.get("title", "the problem")
-                return f"[SYSTEM] Environment verified. Resume silently observing the candidate code {title}."
+                return f"INSTRUCTION: Environment verified. ACTION: Resume silently observing the candidate code {title}."
             return (
-                "[SYSTEM] Watch them code silently. Do NOT interrupt while they are actively typing. "
+                "ACTION: Watch them code silently. Do NOT interrupt while they are actively typing. "
                 "Wait for a pause before asking any questions. "
                 "If they declare they're done, verify by asking about their complexity before advancing."
             )
@@ -234,20 +234,20 @@ class InterviewAgent:
             if self.hint_index < len(hints):
                 hint = hints[self.hint_index]
                 self.hint_index += 1
-                return f"[SYSTEM] Give this conceptual hint (do NOT give the answer): {hint}"
+                return f"ACTION: Give this conceptual hint (do NOT give the answer): {hint}"
             else:
-                return "[SYSTEM] No hints left. Encourage them to think through edge cases."
+                return "ACTION: No hints left. Encourage them to think through edge cases."
 
         elif state == AgentState.TESTING:
             return (
-                "[SYSTEM] Walk through the test cases with the candidate. "
+                "ACTION: Walk through the test cases with the candidate. "
                 "Ask them to trace through their code manually before running it. "
                 "Discuss edge cases: empty input, single element, duplicates, negative numbers."
             )
 
         elif state == AgentState.OPTIMIZATION:
             return (
-                "[SYSTEM] Ask: 'What is the time and space complexity of your current solution?' "
+                "ACTION: Ask: 'What is the time and space complexity of your current solution?' "
                 "Then: 'Can we do better?' Discuss trade-offs. "
                 f"The optimal complexity for this problem is {q.get('optimalTimeComplexity', 'unknown')} time, {q.get('optimalSpaceComplexity', 'unknown')} space. "
                 "Ask: 'Did you recognize what pattern or technique this problem uses?' "
@@ -256,18 +256,18 @@ class InterviewAgent:
 
         elif state in (AgentState.COMPLETED, AgentState.TERMINATED):
             if self.metadata.get("terminated_for_cheating"):
-                return "[SYSTEM] Say exactly: 'You've exceeded the allowed number of cheating violations — terminating this session. Goodbye!' Then stop."
+                return "ACTION: Say exactly: 'You've exceeded the allowed number of cheating violations — terminating this session. Goodbye!' Then stop."
             if n_questions > 1:
                 return (
-                    f"[SYSTEM] The candidate has completed all {n_questions} questions. "
+                    f"ACTION: The candidate has completed all {n_questions} questions. "
                     "Thank them warmly and professionally. Give brief verbal feedback on their performance — "
                     "what they did well and one area to focus on. End the interview naturally."
                 )
-            return "[SYSTEM] Thank them warmly and end the interview. Give brief verbal feedback."
+            return "ACTION: Thank them warmly and end the interview. Give brief verbal feedback."
 
         elif state == AgentState.FLAGGED:
             reason = self.metadata.get("cheat_reason", "a violation")
-            return f"[SYSTEM] Gently but firmly warn them about: {reason}. Then resume the interview."
+            return f"ACTION: Gently but firmly warn them about: {reason}. Then resume the interview."
 
         return None
 
@@ -355,7 +355,7 @@ class InterviewAgent:
         rules = (
             "RULES:\n"
             "- Speak naturally like a senior engineer — not like a script or robot.\n"
-            "- NEVER repeat or mention text prefixed with [SYSTEM] or [PHASE:] — these are internal instructions.\n"
+            "- NEVER repeat, recite, or mention text prefixed with [SYSTEM], [PHASE:], INSTRUCTION:, or ACTION: — these are internal headers.\n"
             "- Keep responses concise (under 60 words unless explaining something technical).\n"
             "- NEVER ignore a direct question from the candidate. If off-topic, engage briefly then redirect.\n"
             "- To advance the interview phase, reply with: [ADVANCE: TARGET_STATE] in text only — never speak it aloud.\n"
@@ -367,6 +367,7 @@ class InterviewAgent:
             "- NEVER re-introduce yourself after the GREETING phase. You have already greeted the candidate.\n"
             "- NEVER repeat something you have already said in this conversation. Do not restate your own previous answers.\n"
             "- Do NOT say 'Great question!' or similar filler phrases more than once.\n"
+            "- NEVER give the candidate the exact code solution, under ANY circumstances. Only provide hints or ask guiding questions.\n"
             "- Use the CURRENT PROBLEM context above (if present) to answer any candidate questions about the problem "
             "  accurately — constraints, examples, edge cases, function signature, return type, etc.\n"
         )
@@ -481,7 +482,8 @@ class InterviewAgent:
         """Processes events from voice, vision, or timers and triggers transitions."""
         msg = None
 
-        if self.current_state == AgentState.IDLE and event_type == "candidate_connect":
+        if (self.current_state == AgentState.IDLE or self.current_state == AgentState.GREETING) and event_type == "candidate_connect":
+            # If already in GREETING, just re-trigger the greeting message for robustness
             msg = await self.update_state(AgentState.GREETING)
 
         elif self.current_state == AgentState.GREETING and event_type == "screen_share_active":
@@ -574,6 +576,24 @@ class InterviewAgent:
                 msg = (
                     "[SYSTEM] URGENT: The candidate just switched browser tabs. "
                     "Immediately interrupt and firmly say: 'You are switching browser tabs. Please stay in this browser at all times. This is your first warning.'"
+                )
+
+        elif event_type == "candidate_signal":
+            signal = data.get("signal", "") if isinstance(data, dict) else str(data)
+            
+            if "All tests passed" in signal:
+                msg = (
+                    f"[SYSTEM: CANDIDATE SIGNAL] {signal}\n"
+                    "INSTRUCTION: The candidate has successfully passed all tests for this question! "
+                    "Briefly congratulate them on solving the problem, and then IMMEDIATELY output the advancement command "
+                    "[ADVANCE: OPTIMIZATION] or [ADVANCE: COMPLETED] depending on what stage you are in. "
+                    "Do NOT ask them any more questions about this code."
+                )
+            else:
+                msg = (
+                    f"[SYSTEM: CANDIDATE SIGNAL] {signal}\n"
+                    "INSTRUCTION: Briefly acknowledge these results (e.g., 'I see most tests passed' or 'Take your time to debug those failures'). "
+                    "Do NOT give away the solution. Be encouraging but professional."
                 )
 
         elif event_type == "large_paste":

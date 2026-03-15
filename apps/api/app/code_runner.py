@@ -289,6 +289,8 @@ def _parse_output(stdout: str, stderr: str, tests: list) -> dict:
         "total": len(tests),
         "results": results,
         "error": runtime_error,
+        "stdout": stdout,
+        "stderr": stderr,
     }
 
 
