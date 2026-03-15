@@ -1,5 +1,3 @@
-# Email service for SynthInterview (SMTP).
-
 import os
 import logging
 from email.mime.multipart import MIMEMultipart
@@ -39,7 +37,6 @@ async def send_invite_email(
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;">
 
-        <!-- Header -->
         <tr>
           <td style="background:#000;padding:28px 36px;border-bottom:1px solid #222;">
             <p style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#fff;">
@@ -51,7 +48,6 @@ async def send_invite_email(
           </td>
         </tr>
 
-        <!-- Body -->
         <tr>
           <td style="padding:36px;">
             <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff;">
@@ -61,7 +57,6 @@ async def send_invite_email(
               Click the button below to begin your technical interview. The link is valid for <strong style="color:#ccc;">60 minutes</strong> from when you click it.
             </p>
 
-            <!-- Details box -->
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid #222;border-radius:8px;margin-bottom:28px;">
               <tr>
                 <td style="padding:16px 20px;">
@@ -79,7 +74,6 @@ async def send_invite_email(
               </tr>
             </table>
 
-            <!-- CTA Button -->
             <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
               <tr>
                 <td style="background:#fff;border-radius:8px;">
@@ -90,13 +84,11 @@ async def send_invite_email(
               </tr>
             </table>
 
-            <!-- Link fallback -->
             <p style="margin:0 0 6px;font-size:11px;color:#555;">Or copy this link:</p>
             <p style="margin:0 0 28px;font-size:11px;color:#666;word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:6px;border:1px solid #1a1a1a;">
               {session_link}
             </p>
 
-            <!-- Tips -->
             <p style="margin:0 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;">Before you start</p>
             <ul style="margin:0;padding-left:18px;font-size:13px;color:#888;line-height:2;">
               <li>Have a code editor or use the built-in Monaco editor</li>
@@ -107,9 +99,9 @@ async def send_invite_email(
           </td>
         </tr>
 
-        <!-- Footer -->
         <tr>
           <td style="background:#0a0a0a;padding:16px 36px;border-top:1px solid #1a1a1a;text-align:center;">
+
             <p style="margin:0;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;">
               SynthInterview &mdash; AI-Powered Technical Interviews
             </p>
@@ -148,7 +140,6 @@ async def send_scorecard_email(
     feedback = scorecard.get("feedback", "")
     dimension_feedback = scorecard.get("dimension_feedback", {})
 
-    # Rating style
     rating_color = {
         "Excellent": "#22c55e",
         "Good": "#3b82f6",
@@ -188,7 +179,6 @@ async def send_scorecard_email(
           </td>
         </tr>"""
 
-    # Truncate content
     code_snippet = final_code[-1500:] if len(final_code) > 1500 else final_code
     code_escaped = code_snippet.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -201,7 +191,6 @@ async def send_scorecard_email(
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;">
 
-        <!-- Header -->
         <tr>
           <td style="background:#000;padding:28px 36px;border-bottom:1px solid #222;">
             <p style="margin:0;font-size:20px;font-weight:900;letter-spacing:-0.5px;color:#fff;">
@@ -213,7 +202,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Overall Score -->
         <tr>
           <td style="padding:32px 36px;border-bottom:1px solid #1a1a1a;text-align:center;">
             <div style="display:inline-block;width:90px;height:90px;border-radius:50%;border:3px solid {rating_color};line-height:84px;font-size:28px;font-weight:900;color:#fff;margin-bottom:12px;">
@@ -224,7 +212,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Dimension Scores -->
         <tr>
           <td style="padding:0;">
             <p style="margin:20px 36px 8px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Score Breakdown</p>
@@ -234,7 +221,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Overall Feedback -->
         <tr>
           <td style="padding:24px 36px;border-top:1px solid #1a1a1a;">
             <p style="margin:0 0 10px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Interviewer Feedback</p>
@@ -242,7 +228,6 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Code Submission -->
         <tr>
           <td style="padding:0 36px 24px;">
             <p style="margin:0 0 10px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;">Your Submission ({language})</p>
@@ -252,9 +237,9 @@ async def send_scorecard_email(
           </td>
         </tr>
 
-        <!-- Footer -->
         <tr>
           <td style="background:#0a0a0a;padding:16px 36px;border-top:1px solid #1a1a1a;text-align:center;">
+
             <p style="margin:0;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;">
               SynthInterview &mdash; AI-Powered Technical Interviews
             </p>

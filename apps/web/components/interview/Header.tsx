@@ -65,7 +65,11 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2.5 group cursor-default">
           <div className="w-7 h-7 rounded-lg overflow-hidden border border-blue-500/20 flex items-center justify-center transition-all group-hover:border-blue-500/40">
-            <img src="/logo.svg" alt="SynthInterview Logo" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+            <img
+              src="/logo.svg"
+              alt="SynthInterview Logo"
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+            />
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-[11px] font-black tracking-[0.2em] text-slate-300 uppercase">
@@ -83,17 +87,21 @@ export const Header: React.FC<HeaderProps> = ({
           className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.05em] shadow-sm transition-all duration-500 ${stateColor.replace("rounded", "rounded-full")} border border-white/5`}
         >
           <div className="scale-75 opacity-70">{stateIcon}</div>
-          {currentState === "PROBLEM_DELIVERY" ? "New Problem" : 
-           currentState === "THINK_TIME" ? "Problem Intro" :
-           currentState === "APPROACH_LISTEN" ? "Listening" :
-           currentState === "TESTING" ? "Testing Solution" :
-           currentState === "OPTIMIZATION" ? "Refining Code" :
-           currentState.replace(/_/g, " ")}
+          {currentState === "PROBLEM_DELIVERY"
+            ? "New Problem"
+            : currentState === "THINK_TIME"
+              ? "Problem Intro"
+              : currentState === "APPROACH_LISTEN"
+                ? "Listening"
+                : currentState === "TESTING"
+                  ? "Testing Solution"
+                  : currentState === "OPTIMIZATION"
+                    ? "Refining Code"
+                    : currentState.replace(/_/g, " ")}
         </div>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Timer UI */}
         <div
           onClick={() => isConnected && setIsTimerRunning(!isTimerRunning)}
           className={`flex items-center gap-2.5 cursor-pointer text-[11px] font-mono font-bold px-4 py-1.5 rounded-full border transition-all duration-300 ${
@@ -110,7 +118,6 @@ export const Header: React.FC<HeaderProps> = ({
           {formatTime(time)}
         </div>
 
-        {/* Dynamic Status Indicator */}
         {(() => {
           const conversationStates = new Set([
             "THINK_TIME",
@@ -252,7 +259,8 @@ export const Banners: React.FC<BannersProps> = ({
                 Screen Feed Lost
               </span>
               <span className="text-[9px] text-amber-300/60 uppercase tracking-tight">
-                Screen sharing is required to proceed with the technical session.
+                Screen sharing is required to proceed with the technical
+                session.
               </span>
             </div>
           </div>

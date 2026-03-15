@@ -65,7 +65,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 }) => {
   return (
     <div className="flex-[3] min-w-0 border-r border-white/5 flex flex-col bg-[#050505] relative group">
-      {/* Editor Toolbar */}
       <div className="h-12 flex items-center justify-between px-5 border-b border-white/5 bg-slate-900/40 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3">
           <LanguageSelector
@@ -80,7 +79,10 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 group/badge">
             <span className="text-[11px] text-slate-400 font-bold tracking-tight group-hover/badge:text-white transition-colors">
-              solution<span className="text-white/60 group-hover/badge:text-blue-400">{currentLang.ext}</span>
+              solution
+              <span className="text-white/60 group-hover/badge:text-blue-400">
+                {currentLang.ext}
+              </span>
             </span>
           </div>
         </div>
@@ -106,7 +108,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               {isRunning ? (
                 <Loader2 size={13} className="animate-spin" />
               ) : (
-                <Play size={13} fill="currentColor" className="opacity-80 group-hover:opacity-100" />
+                <Play
+                  size={13}
+                  fill="currentColor"
+                  className="opacity-80 group-hover:opacity-100"
+                />
               )}
               {isRunning ? "Running..." : "Run Code"}
             </button>
@@ -114,7 +120,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
         </div>
       </div>
 
-      {/* Main Body */}
       <div className="flex-1 min-h-0 flex flex-col relative bg-[#030303]">
         <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none z-10" />
 
@@ -173,7 +178,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           />
         </div>
 
-        {/* Test Cases Panel */}
         {showTerminal && (
           <TestCasesPanel
             structuredTests={structuredTests}

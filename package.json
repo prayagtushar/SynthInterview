@@ -12,8 +12,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,yml,yaml}\"",
-    "setup:mac": "bun install && cd apps/api && uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt",
-    "setup:windows": "bun install && cd apps/api && uv venv .venv && uv pip install -r requirements.txt",
+    "setup:mac": "bun install && cd apps/api && uv venv .venv && source .venv/bin/activate && uv pip install -r requirements.txt",
+    "setup:windows": "bun install && cd apps/api && uv venv .venv && .\\.venv\\Scripts\\activate && uv pip install -r requirements.txt",
     "install:web": "bun install",
     "install:api": "cd apps/api && uv venv .venv && uv pip install -r requirements.txt"
   },

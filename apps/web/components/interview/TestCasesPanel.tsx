@@ -31,10 +31,9 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
     if (runResult) setTab("results");
   }, [runResult]);
 
-  const resultLabel =
-    runResult
-      ? `Results (${runResult.passed}/${runResult.total})`
-      : "Results";
+  const resultLabel = runResult
+    ? `Results (${runResult.passed}/${runResult.total})`
+    : "Results";
 
   return (
     <div className="h-52 border-t border-blue-500/20 bg-slate-950 flex flex-col shrink-0">
@@ -105,7 +104,10 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
                       </span>
                       {result &&
                         (result.passed ? (
-                          <CheckCircle2 size={12} className="text-emerald-400" />
+                          <CheckCircle2
+                            size={12}
+                            className="text-emerald-400"
+                          />
                         ) : (
                           <XCircle size={12} className="text-red-400" />
                         ))}
@@ -194,7 +196,9 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
                       {!r.passed && (
                         <p className="text-[10px] text-zinc-500 mt-0.5">
                           got{" "}
-                          <code className="text-red-300">{String(r.actual)}</code>
+                          <code className="text-red-300">
+                            {String(r.actual)}
+                          </code>
                           , expected{" "}
                           <code className="text-emerald-300">
                             {String(r.expected)}

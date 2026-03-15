@@ -53,25 +53,39 @@ export default function FAQSection() {
   const [openId, setOpenId] = React.useState<number | null>(null);
 
   return (
-    <section id="faq" className="section-container bg-[#030303] border-t border-white/5 py-32 md:py-48 overflow-hidden">
+    <section
+      id="faq"
+      className="section-container bg-[#030303] border-t border-white/5 py-32 md:py-48 overflow-hidden"
+    >
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-white/[0.01] rounded-full blur-[120px] pointer-events-none" />
-      
+
       <div className="section-inner relative z-10 px-6 sm:px-10 max-w-4xl w-full">
-        <motion.header 
+        <motion.header
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
           variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
           className="mb-24 text-center flex flex-col items-center"
         >
-          <motion.div variants={fadeUpVariants} className="section-badge mb-6 gap-2.5">
+          <motion.div
+            variants={fadeUpVariants}
+            className="section-badge mb-6 gap-2.5"
+          >
             <HelpCircle size={14} className="text-white/40 flex-shrink-0" />
-            <span className="leading-none translate-y-[0.5px]">Knowledge Base</span>
+            <span className="leading-none translate-y-[0.5px]">
+              Knowledge Base
+            </span>
           </motion.div>
-          <motion.h2 variants={fadeUpVariants} className="section-title text-gradient !text-4xl md:!text-7xl leading-[1.1]">
+          <motion.h2
+            variants={fadeUpVariants}
+            className="section-title text-gradient !text-4xl md:!text-7xl leading-[1.1]"
+          >
             Curiosity <span className="font-serif-italic">architected</span>.
           </motion.h2>
-          <motion.p variants={fadeUpVariants} className="mt-8 text-white/70 max-w-xl text-lg md:text-xl leading-relaxed mx-auto">
+          <motion.p
+            variants={fadeUpVariants}
+            className="mt-8 text-white/70 max-w-xl text-lg md:text-xl leading-relaxed mx-auto"
+          >
             Deep technical answers for the engineering-first hiring process.
           </motion.p>
         </motion.header>
@@ -97,16 +111,21 @@ export default function FAQSection() {
                 onClick={() => setOpenId(openId === faq.id ? null : faq.id)}
                 className="w-full flex items-center justify-between p-8 md:p-10 text-left outline-none cursor-pointer"
               >
-                <h3 className={`text-xl md:text-2xl font-bold tracking-tight transition-all duration-500 ${openId === faq.id ? "text-white" : "text-white/70 group-hover:text-white"}`}>
-                   {faq.question}
+                <h3
+                  className={`text-xl md:text-2xl font-bold tracking-tight transition-all duration-500 ${openId === faq.id ? "text-white" : "text-white/70 group-hover:text-white"}`}
+                >
+                  {faq.question}
                 </h3>
                 <div
                   className={`flex-shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-all duration-500 ${openId === faq.id ? "bg-white text-black border-white shadow-xl rotate-180" : "bg-white/5 border-white/10 group-hover:border-white/30"}`}
                 >
-                  <ChevronDown size={22} className={`transition-transform duration-500 ${openId === faq.id ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    size={22}
+                    className={`transition-transform duration-500 ${openId === faq.id ? "rotate-180" : ""}`}
+                  />
                 </div>
               </button>
-              
+
               <AnimatePresence>
                 {openId === faq.id && (
                   <motion.div

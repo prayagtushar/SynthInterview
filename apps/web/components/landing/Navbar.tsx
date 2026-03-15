@@ -19,7 +19,11 @@ export default function Navbar() {
       <div className="glass rounded-full px-8 py-3 flex justify-between items-center shadow-2xl border-white/5">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 flex items-center justify-center group-hover:rotate-[15deg] transition-all duration-500 shadow-xl overflow-hidden rounded-xl border border-white/10">
-            <img src="/logo.svg" alt="SynthInterview Logo" className="w-full h-full object-cover" />
+            <img
+              src="/logo.svg"
+              alt="SynthInterview Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <span className="font-black text-2xl text-white italic tracking-tighter">
             SYNTH
@@ -27,16 +31,28 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden lg:flex items-center gap-10 text-[10px] font-bold uppercase tracking-[0.3em] text-white/50">
-          <a href="#features" className="hover:text-white transition-all duration-300 relative group">
+          <a
+            href="#features"
+            className="hover:text-white transition-all duration-300 relative group"
+          >
             Logic
           </a>
-          <a href="#workflow" className="hover:text-white transition-all duration-300 relative group">
+          <a
+            href="#workflow"
+            className="hover:text-white transition-all duration-300 relative group"
+          >
             Cycle
           </a>
-          <a href="#use-cases" className="hover:text-white transition-all duration-300 relative group">
+          <a
+            href="#use-cases"
+            className="hover:text-white transition-all duration-300 relative group"
+          >
             Solutions
           </a>
-          <a href="#faq" className="hover:text-white transition-all duration-300 relative group">
+          <a
+            href="#faq"
+            className="hover:text-white transition-all duration-300 relative group"
+          >
             FAQ
           </a>
         </div>

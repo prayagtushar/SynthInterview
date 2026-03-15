@@ -28,7 +28,7 @@ class CheatDetector:
         self.consecutive_flags = 0
         self.total_strikes = 0
         self.last_analysis_time = 0
-        self.analysis_interval = 2.0  # Increased frequency (2s)
+        self.analysis_interval = 2.0
         self.violation_log: List[Dict] = []
         self.hydrate()
 
@@ -136,7 +136,6 @@ class CheatDetector:
 
     async def _handle_violation(self, violation: Dict, frame_b64: str) -> Dict:
         """Applies threshold logic and logs to Firestore/Storage."""
-        # 5 total strikes OR 3 consecutive flags = TERMINATE
         if self.consecutive_flags >= 3 or self.total_strikes >= 5:
             violation_type = "TERMINATE"
         else:
@@ -197,7 +196,6 @@ class CheatDetector:
             msg = str(e).lower()
             if "billing" in msg or "delinquent" in msg:
                 print(f"[PROCTOR] CRITICAL: Storage billing disabled. Skipping uploads.")
-                # We could set a flag to stop trying for this session
                 self.bucket = None 
             else:
                 print(f"Storage upload error: {e}")

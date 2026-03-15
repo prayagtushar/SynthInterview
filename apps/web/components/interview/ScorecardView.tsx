@@ -20,11 +20,14 @@ export const ScorecardView: React.FC<ScorecardViewProps> = ({
   const requestHumanReview = async () => {
     setReviewLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/sessions/${sessionId}/request-review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      const res = await fetch(
+        `${API_BASE}/sessions/${sessionId}/request-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
       if (res.ok) setReviewRequested(true);
     } catch {
       // silent fail — user can retry

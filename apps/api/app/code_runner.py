@@ -1,6 +1,3 @@
-# Local code execution for Python and Node (JS/TS).
-# Java/C++/Go support pending.
-
 import asyncio
 import json
 import logging
@@ -57,8 +54,6 @@ async def run_code_against_tests(
     }
 
 
-# ── Local subprocess execution ───────────────────────────────────────────────
-
 async def _run_subprocess(harness: str, tests: list, cmd: list[str], ext: str) -> dict:
     """Runs harness in subprocess and parses output."""
     tmp = None
@@ -109,8 +104,6 @@ def _strip_ts_types(code: str) -> str:
     return code
 
 
-# ── Harness builders ────────────────────────────────────────────────────────
-
 def _build_harness(code: str, language: str, tests: list, sort_compare) -> Optional[str]:
     tests_json = json.dumps(tests)
     if language == "python":
@@ -135,7 +128,6 @@ def _python_harness(code: str, tests_json: str, sort_compare) -> str:
         compare = "_result == _expected"
     return f"""{code}
 
-# ─── Auto-grader ─────────────────────────────────────────────
 import json as _json
 _tests = {tests_json}
 _passed = 0
@@ -199,14 +191,11 @@ console.log(`SUMMARY:${{_passed}}/${{_tests.length}}`);
 
 
 def _java_harness(code: str, tests_json: str) -> str:
-    # Java is complex — use a wrapper that prints basic output
-    # Candidate's code must be a class with a solve() method
     return f"""import java.util.*;
 import java.util.stream.*;
 
 {code}
 
-// Auto-grader main
 class Main {{
     public static void main(String[] args) {{
         // Java auto-grading requires manual test specification
@@ -235,15 +224,12 @@ int main() {{
 def _go_harness(code: str, tests_json: str) -> str:
     return f"""{code}
 
-// Auto-grader
 func main() {{
     fmt.Println("SUMMARY:0/0")
     fmt.Println("NOTE:Go auto-grading runs code but cannot parse test cases automatically.")
 }}
 """
 
-
-# ── Output parser ────────────────────────────────────────────────────────────
 
 def _parse_output(stdout: str, stderr: str, tests: list) -> dict:
     """Parse harness stdout into structured results."""

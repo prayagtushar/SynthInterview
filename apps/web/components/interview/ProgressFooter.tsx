@@ -45,12 +45,15 @@ export const ProgressFooter: React.FC<ProgressFooterProps> = ({
           const thisIdx = states.indexOf(s);
           const done = currentIdx > thisIdx;
           const active = s === currentState;
-          
-          const friendlyName = 
-            s === "PROBLEM_DELIVERY" ? "New Problem" : 
-            s === "TESTING" ? "Testing" :
-            s === "ENV_CHECK" ? "Setup" :
-            s.replace(/_/g, " ");
+
+          const friendlyName =
+            s === "PROBLEM_DELIVERY"
+              ? "New Problem"
+              : s === "TESTING"
+                ? "Testing"
+                : s === "ENV_CHECK"
+                  ? "Setup"
+                  : s.replace(/_/g, " ");
 
           return (
             <div

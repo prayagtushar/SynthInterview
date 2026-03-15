@@ -122,7 +122,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           isSpeaking={isSpeaking}
         />
       ) : (
-        <ScorecardView scorecard={scorecard} currentState={currentState} sessionId={sessionId} />
+        <ScorecardView
+          scorecard={scorecard}
+          currentState={currentState}
+          sessionId={sessionId}
+        />
       )}
 
       <div className="p-4 bg-slate-900/30 border-t border-white/5 shrink-0">

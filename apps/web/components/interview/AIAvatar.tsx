@@ -20,12 +20,16 @@ export const AIAvatar: React.FC<AIAvatarProps> = ({
             isSpeaking
               ? "border-blue-400/60 shadow-[0_0_25px_rgba(59,130,246,0.4)] scale-105"
               : isUserSpeaking
-              ? "border-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.2)]"
-              : "border-white/10 group-hover/avatar:border-white/20"
+                ? "border-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.2)]"
+                : "border-white/10 group-hover/avatar:border-white/20"
           }`}
         >
-          <div className={`absolute inset-0.5 rounded-full bg-gradient-to-br from-blue-500/20 to-sky-500/20 ${isSpeaking ? "animate-pulse" : ""}`} />
-          <span className="relative z-10 text-base font-black text-white/90">S</span>
+          <div
+            className={`absolute inset-0.5 rounded-full bg-gradient-to-br from-blue-500/20 to-sky-500/20 ${isSpeaking ? "animate-pulse" : ""}`}
+          />
+          <span className="relative z-10 text-base font-black text-white/90">
+            S
+          </span>
         </div>
         {isSpeaking && (
           <>

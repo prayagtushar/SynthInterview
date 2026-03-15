@@ -1,209 +1,86 @@
-<div align="center">
-  <h1>SYNTHINTERVIEW</h1>
-  <p><b>Automated AI-Powered Technical Interviews</b></p>
-</div>
+# SynthInterview
 
----
+SynthInterview is an intelligent orchestration platform designed to conduct autonomous technical coding interviews. It integrates real-time video and audio processing with a live coding environment to provide a structured and objective evaluation process.
 
-SynthInterview is an intelligent orchestration platform designed to conduct complete technical coding interviews autonomously. It combines real-time video, audio processing, and code compilation to simulate a rigorous, structured, and fair interview process.
+The platform is powered by the Gemini Live API for low-latency dialogue and vision-based analysis, enabling it to act as a senior technical interviewer.
 
-<br />
+## Features
 
-### Core Capabilities
+- **Real-Time Voice Interaction:** Low-latency conversations powered by the Gemini Live API.
+- **Multimodal Evaluation:** Live video and screen analysis for behavioral and technical assessment.
+- **Integrated Code Environment:** A browser-based IDE with syntax highlighting and multi-language support.
+- **Automated Scorecards:** Comprehensive post-interview analysis of technical and communication skills.
+- **Integrity Monitoring:** Automated proctoring to ensure session fairness.
 
-- **Real-Time AI Interaction**  
-  Low-latency spoken conversations powered by the Gemini Live API, handling dynamic dialogue seamlessly.
+## Project Structure
 
-- **Integrated IDE**  
-  A fully featured browser-based coding environment with syntax highlighting, supporting multiple languages.
+This project is a monorepo managed with Turborepo.
 
-- **Live Code Execution**  
-  Secure, sandboxed runtime environments for instant candidate code validation and execution.
+- **`apps/web`**: Next.js frontend application.
+- **`apps/api`**: FastAPI backend server for AI orchestration.
+- **`packages/types`**: Shared TypeScript definitions.
 
-- **Active Proctoring**  
-  Vision-based cheat detection that monitors for split screens, unauthorized IDEs, and AI assistance tools.
+## Setup and Installation
 
-- **Automated Evaluation**  
-  Detailed post-interview scorecards that analyze communication, approach, code quality, correctness, and time management.
+### Prerequisites
 
-<br />
+| Tool   | Version | Link                                  |
+| :----- | :------ | :------------------------------------ |
+| Bun    | Latest  | [bun.sh](https://bun.sh/)             |
+| Python | 3.10+   | [python.org](https://www.python.org/) |
+| uv     | Latest  | [astral.sh/uv](https://astral.sh/uv)  |
 
-### Stack & Architecture
+### Configuration
 
-The project is built as a monorepo utilizing Turborepo for synchronized cross-stack development.
+Before running the application, configure the environment variables by copying the example files:
 
-- **Frontend:** Next.js (App Router), React, Tailwind CSS
-- **Backend:** Python, FastAPI, WebSockets
-- **AI Orchestration:** Google Gemini 2.0 Flash
-- **Infrastructure:** Firebase Firestore, Google Cloud Storage
-- **Tooling:** Bun, Docker
+1. **Root Directory:** `copy .env.example .env`
+2. **Apps/Web:** `copy apps/web/.env.example apps/web/.env`
+3. **Apps/API:** `copy apps/api/.env.example apps/api/.env`
 
-```text
-synth-interview/
-├── apps/
-│   ├── web/                (Next.js Frontend)
-│   └── api/                (FastAPI Orchestrator)
-├── packages/
-│   ├── config/             (Shared Configurations)
-│   └── types/              (Shared TypeScript Definitions)
-└── turbo.json              (Monorepo Root)
+Required configuration includes:
+
+- **GEMINI_API_KEY**: Obtain from [Google AI Studio](https://aistudio.google.com/app/apikey).
+- **FIREBASE_SERVICE_ACCOUNT_JSON**: Service account credentials from the Firebase Console.
+- **Firebase Public Keys**: Client-side keys (`API_KEY`, `PROJECT_ID`, etc.) for the frontend.
+- **GCS_BUCKET_NAME**: Google Cloud Storage bucket for storing proctoring artifacts.
+- **SMTP Settings**: (Optional) For sending session invites and scorecards via email.
+
+<details>
+<summary><b>Windows Setup</b></summary>
+
+Run the following command in PowerShell:
+
+```powershell
+bun run setup:windows
 ```
 
-<br />
-
-### Getting Started
-
-<details>
-<summary><strong>🍎 macOS Setup</strong></summary>
-
-#### Prerequisites
-
-Before setting up the project, ensure you have the following installed on your Mac:
-
-| Tool                  | Required Version | Installation                                                                    |
-| --------------------- | ---------------- | ------------------------------------------------------------------------------- | ----- |
-| **Bun**               | Latest           | `curl -fsSL https://bun.sh/install                                              | bash` |
-| **Python**            | 3.10+            | Pre-installed or via `brew install python@3.11`                                 |
-| **Redis**             | Latest           | `brew install redis` then `brew services start redis`                           |
-| **Docker** (optional) | Latest           | [Download from Docker website](https://www.docker.com/products/docker-desktop/) |
-
-#### Setup Steps
-
-1. **Install Homebrew** (if not installed):
-
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-2. **Install Redis**:
-
-   ```bash
-   brew install redis
-   brew services start redis
-   ```
-
-3. **Install Bun**:
-
-   ```bash
-   curl -fsSL https://bun.sh/install | bash
-   ```
-
-4. **Verify installations**:
-
-   ```bash
-   bun --version        # Should show version
-   python3 --version    # Should show 3.10+
-   redis-cli ping       # Should return PONG
-   ```
-
-5. **Install dependencies**:
-
-   ```bash
-   bun install
-   ```
-
-6. **Configure environment**:
-
-   ```bash
-   cp .env.example .env
-   cp apps/web/.env.example apps/web/.env
-   cp apps/api/.env.example apps/api/.env
-   ```
-
-7. **Start development servers**:
-   ```bash
-   bun run dev
-   ```
-
-Access the application at:
-
-- Web: `http://localhost:3000`
-- API: `http://localhost:8000`
-
 </details>
 
 <details>
-<summary><strong>🪟 Windows Setup</strong></summary>
+<summary><b>macOS Setup</b></summary>
 
-#### Prerequisites
-
-| Tool                  | Required Version | Installation                                                                                  |
-| --------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
-| **Bun**               | Latest           | `winget install oven-sh.bun` or [Download installer](https://github.com/oven-sh/bun/releases) |
-| **Python**            | 3.10+            | [Download from python.org](https://www.python.org/downloads/)                                 |
-| **Redis**             | Latest           | [Download Redis for Windows](https://github.com/tporadowski/redis/releases) or use WSL        |
-| **Docker** (optional) | Latest           | [Download from Docker website](https://www.docker.com/products/docker-desktop/)               |
-
-#### Setup Steps (Windows)
-
-1. **Install Python**:
-   - Download Python 3.11+ from [python.org](https://www.python.org/downloads/)
-   - During installation, check "Add Python to PATH"
-
-2. **Install Bun**:
-
-   ```powershell
-   winget install oven-sh.bun
-   ```
-
-   Or download from [GitHub releases](https://github.com/oven-sh/bun/releases)
-
-3. **Install Redis** (choose one method):
-
-   **Option A - Using WSL (Recommended)**:
-
-   ```bash
-   # Install WSL first
-   wsl --install
-   # Then in Ubuntu/WSL
-   sudo apt update
-   sudo apt install redis-server
-   redis-server --daemonize yes
-   ```
-
-   **Option B - Using Memurai or Redis Windows port**:
-   - Download [Memurai](https://www.memurai.com/) (free) or
-   - Download Redis from [GitHub](https://github.com/tporadowski/redis/releases)
-
-4. **Verify installations** (in PowerShell):
-
-   ```powershell
-   bun --version
-   python --version    # Or python3 --version
-   redis-cli ping      # If using WSL or Redis in PATH
-   ```
-
-5. **Install dependencies**:
-
-   ```powershell
-   bun install
-   ```
-
-6. **Configure environment**:
-
-   ```powershell
-   # In PowerShell
-   copy .env.example .env
-   copy apps\web\.env.example apps\web\.env
-   copy apps\api\.env.example apps\api\.env
-   ```
-
-7. **Start development servers**:
-   ```powershell
-   bun run dev
-   ```
-
-Access the application at:
-
-- Web: `http://localhost:3000`
-- API: `http://localhost:8000`
-
-</details>
-
-### Quick Start (Docker Alternative)
-
-For a fully containerized environment without manual installations:
+Run the following command in your terminal:
 
 ```bash
-docker compose up --build
+bun run setup:mac
 ```
+
+</details>
+
+## Running the Application
+
+To start both the frontend and backend development servers simultaneously:
+
+```bash
+bun run dev
+```
+
+The services will be available at:
+
+- Frontend: `http://localhost:3000`
+- API Backend: `http://localhost:8000`
+
+## Deployment
+
+Automated deployment scripts for Google Cloud Platform (GCP) are available in `deploy.sh` and `cloudbuild.yaml`.
