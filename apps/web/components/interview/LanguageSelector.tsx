@@ -39,12 +39,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         onClick={() => setShowLangMenu(!showLangMenu)}
         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all duration-200 text-[10px] font-black uppercase tracking-widest ${
           showLangMenu
-            ? "bg-indigo-500/10 border-indigo-500/30 text-white"
+            ? "bg-blue-500/10 border-blue-500/30 text-white"
             : "bg-white/[0.03] border-white/5 text-slate-400 hover:text-white hover:border-white/10"
         }`}
       >
-        <div className="p-0.5 rounded bg-indigo-500/20">
-          <Code2 size={10} className="text-indigo-400" />
+        <div className="p-0.5 rounded bg-blue-500/20">
+          <Code2 size={10} className="text-blue-400" />
         </div>
         {currentLang.label}
         <ChevronDown
@@ -73,7 +73,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                 }}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
                   lang.id === language
-                    ? "bg-indigo-500/10 text-indigo-300"
+                    ? "bg-blue-500/10 text-blue-300"
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
@@ -84,7 +84,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   {lang.label}
                 </div>
                 {lang.id === language && (
-                  <Check size={12} className="text-indigo-400" />
+                  <Check size={12} className="text-blue-400" />
                 )}
               </button>
             ))}

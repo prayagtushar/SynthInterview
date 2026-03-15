@@ -31,15 +31,14 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
     if (runResult) setTab("results");
   }, [runResult]);
 
-  const resultLabel =
-    runResult
-      ? `Results (${runResult.passed}/${runResult.total})`
-      : "Results";
+  const resultLabel = runResult
+    ? `Results (${runResult.passed}/${runResult.total})`
+    : "Results";
 
   return (
-    <div className="h-52 border-t border-indigo-500/20 bg-slate-950 flex flex-col shrink-0">
+    <div className="h-52 border-t border-blue-500/20 bg-slate-950 flex flex-col shrink-0">
       {/* Tab bar */}
-      <div className="h-8 flex items-center justify-between px-3 border-b border-indigo-500/20 bg-slate-900 shrink-0">
+      <div className="h-8 flex items-center justify-between px-3 border-b border-blue-500/20 bg-slate-900 shrink-0">
         <div className="flex items-center gap-1">
           {(["cases", "results", "scratchpad"] as const).map((t) => (
             <button
@@ -47,7 +46,7 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
               onClick={() => setTab(t)}
               className={`px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest rounded transition-colors ${
                 tab === t
-                  ? "bg-indigo-600/30 text-indigo-300 border border-indigo-600/30"
+                  ? "bg-blue-600/30 text-blue-300 border border-blue-600/30"
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
@@ -105,7 +104,10 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
                       </span>
                       {result &&
                         (result.passed ? (
-                          <CheckCircle2 size={12} className="text-emerald-400" />
+                          <CheckCircle2
+                            size={12}
+                            className="text-emerald-400"
+                          />
                         ) : (
                           <XCircle size={12} className="text-red-400" />
                         ))}
@@ -194,7 +196,9 @@ export const TestCasesPanel: React.FC<TestCasesPanelProps> = ({
                       {!r.passed && (
                         <p className="text-[10px] text-zinc-500 mt-0.5">
                           got{" "}
-                          <code className="text-red-300">{String(r.actual)}</code>
+                          <code className="text-red-300">
+                            {String(r.actual)}
+                          </code>
                           , expected{" "}
                           <code className="text-emerald-300">
                             {String(r.expected)}

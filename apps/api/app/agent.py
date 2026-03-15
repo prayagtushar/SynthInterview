@@ -31,7 +31,6 @@ class InterviewAgent:
         self.timer_task = None
         self.silence_timer_task: Optional[asyncio.Task] = None
 
-        # Multi-question support
         self.questions: List[Dict] = questions or []
         self.current_question_index: int = 0
 
@@ -95,7 +94,6 @@ class InterviewAgent:
         if metadata:
             self.metadata.update(metadata)
 
-        # Cancel any existing timers
         if self.timer_task:
             self.timer_task.cancel()
             self.timer_task = None
@@ -117,7 +115,6 @@ class InterviewAgent:
                 "starterCode": q.get("starterCode", {}),
             }
 
-        # Start silence timer for active coding/discussion states
         if new_state in (AgentState.CODING, AgentState.APPROACH_LISTEN):
             self.last_activity_time = datetime.utcnow()
             self.silence_timer_task = asyncio.create_task(self._silence_timer(120))
@@ -136,7 +133,6 @@ class InterviewAgent:
                 "currentQuestionIndex": self.current_question_index,
                 "metadata": persist_meta,
             }
-            # Fire-and-forget: run in thread pool so the event loop is never blocked
             asyncio.create_task(self._persist_bg(snapshot))
 
         print(f"Agent state changed for {self.session_id}: {old_state.value} -> {new_state.value} (q {self.current_question_index + 1}/{len(self.questions)})")
@@ -159,7 +155,6 @@ class InterviewAgent:
             "timestamp": datetime.utcnow().isoformat(),
             "detail": detail,
         }
-        # Keep in-memory list for scorecard
         if "cheat_events" not in self.metadata:
             self.metadata["cheat_events"] = []
         self.metadata["cheat_events"].append(event)
@@ -346,7 +341,6 @@ class InterviewAgent:
         q_num = self.current_question_index + 1
         progress = f"[QUESTION PROGRESS: {q_num} of {n_questions}] " if n_questions > 1 else ""
 
-        # States where the agent needs full problem context to answer candidate questions accurately
         _PROBLEM_ACTIVE_STATES = {
             AgentState.PROBLEM_DELIVERY, AgentState.APPROACH_LISTEN,
             AgentState.CODING, AgentState.HINT_DELIVERY,
@@ -368,6 +362,8 @@ class InterviewAgent:
             "- To issue a violation warning: [WARN: reason] in text only.\n"
             "- NEVER tell the candidate to open a code editor, IDE, VS Code, terminal, or any external app. "
             "  A Monaco editor is already embedded in this browser page and is always visible to them.\n"
+            "- Vision Awareness: You have a real-time vision feed of the candidate's screen and webcam. Use this to provide proactive, multimodal feedback and to detect if the candidate looks confused or stuck.\n"
+            "- Proactive Multimodality: Use the vision feed to provide proactive feedback based on what the candidate is highlighting or looking at on their screen.\n"
             "- NEVER re-introduce yourself after the GREETING phase. You have already greeted the candidate.\n"
             "- NEVER repeat something you have already said in this conversation. Do not restate your own previous answers.\n"
             "- Do NOT say 'Great question!' or similar filler phrases more than once.\n"
@@ -519,16 +515,13 @@ class InterviewAgent:
             else:
                 msg = await self.update_state(AgentState.COMPLETED)
 
-        # Typing activity — reset silence timer
         elif event_type == "typing_activity":
             self.last_activity_time = datetime.utcnow()
-            # Restart silence timer if in active coding/discussion state
             if self.current_state in (AgentState.CODING, AgentState.APPROACH_LISTEN):
                 if self.silence_timer_task:
                     self.silence_timer_task.cancel()
                 self.silence_timer_task = asyncio.create_task(self._silence_timer(120))
 
-        # Silence check-in (fired by timer)
         elif event_type == "silence_checkin":
             msg = (
                 "[SYSTEM] The candidate has been quiet for 2 minutes with no typing activity. "
@@ -536,7 +529,6 @@ class InterviewAgent:
                 "or would a small nudge help?' Keep it brief and non-intrusive."
             )
 
-        # Global events (can fire from any state)
         elif event_type == "cheat_detected" or event_type == "cheating_attempt":
             self.metadata["cheat_detected"] = True
             if isinstance(data, dict) and "reason" in data:
@@ -560,7 +552,6 @@ class InterviewAgent:
         elif event_type == "tab_switch":
             count = data.get("count", 1) if isinstance(data, dict) else 1
             self.metadata["tab_switch_count"] = count
-            # Silently log every tab switch as a cheat event
             await self.record_cheat_event("tab_switch", {"count": count})
             if count >= 3:
                 self.metadata["terminated_for_cheating"] = True
@@ -586,10 +577,8 @@ class InterviewAgent:
                 )
 
         elif event_type == "large_paste":
-            # Silently record large paste as a cheat event — do NOT prompt the candidate
             length = data.get("length", 0) if isinstance(data, dict) else 0
             await self.record_cheat_event("large_paste", {"char_count": length})
-            # No msg — no agent speech, no latency
 
         elif event_type == "end_interview":
             reason = data.get("reason", "normal") if isinstance(data, dict) else "normal"
