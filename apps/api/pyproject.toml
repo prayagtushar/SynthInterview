@@ -5,21 +5,21 @@ description = "FastAPI orchestrator for SynthInterview"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.111.0",
-  "uvicorn>=0.29.0",
-  "pydantic>=2.0.0",
-  "python-dotenv>=1.0.1",
-  "google-generativeai",
-  "google-genai",
-  "firebase-admin>=6.0.0",
-  "google-cloud-firestore>=2.16.0",
-  "google-cloud-storage>=2.17.0",
-  "Pillow>=10.0.0",
-  "elevenlabs",
-  "redis>=5.0.0",
-  "weasyprint",
-  "aiosmtplib",
-  "httpx"
+  "fastapi>=0.135.1",
+  "uvicorn>=0.41.0",
+  "pydantic>=2.12.5",
+  "python-dotenv>=1.2.2",
+  "google-generativeai>=0.8.6",
+  "google-genai>=1.67.0",
+  "firebase-admin>=7.2.0",
+  "google-cloud-firestore>=2.25.0",
+  "google-cloud-storage>=3.9.0",
+  "Pillow>=12.1.1",
+  "elevenlabs>=2.39.0",
+  "redis>=7.3.0",
+  "weasyprint>=68.1",
+  "aiosmtplib>=5.1.0",
+  "httpx>=0.28.1"
 ]
 
 [project.optional-dependencies]
