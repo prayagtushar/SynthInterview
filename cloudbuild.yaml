@@ -30,7 +30,7 @@ substitutions:
   _NEXT_PUBLIC_API_URL: ""
   _APP_URL: ""
   _GEMINI_LIVE_MODEL: "gemini-2.5-flash-native-audio-preview-12-2025"
-  _GEMINI_TEXT_MODEL: "gemini-2.5-flash"
+  _GEMINI_TEXT_MODEL: "gemini-3-flash-preview"
   _NEXT_PUBLIC_FIREBASE_API_KEY: ""
   _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ""
   _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ""

@@ -16,6 +16,10 @@ To access all features of SynthInterview, enter the passcode **`SYNTH2025`** on 
 - **Automated Scorecards:** Comprehensive post-interview analysis of technical and communication skills.
 - **Integrity Monitoring:** Automated proctoring to ensure session fairness.
 
+## Architecture
+
+![Architecture](./ARCHITECTURE_SIMPLE.png)
+
 ## Project Structure
 
 This project is a monorepo managed with Turborepo.
