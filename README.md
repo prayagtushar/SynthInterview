@@ -1,141 +1,119 @@
+<div align="center">
+
 # SynthInterview
 
-**AI-powered real-time technical interview platform**
+**Autonomous AI Technical Interviews powered by Gemini Live API.**
 
-SynthInterview conducts technical coding interviews autonomously. It watches the candidate's screen, listens to their explanations, and evaluates their solution in real time — then generates a structured scorecard the moment the session ends.
+SynthInterview conducts end-to-end technical coding interviews. Using multimodal analysis, it watches the candidate's screen, listens to their logic, engages in real-time dialogue, and generates a comprehensive performance scorecard instantly.
 
-Built on the Gemini Live API for simultaneous audio and vision processing, it runs a complete interview from environment setup through optimization discussion without human intervention.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-synthinterview.xyz-black?style=flat-square)](https://synthinterview.xyz/)
+[![Gemini Live API](https://img.shields.io/badge/Gemini%20Live%20API-8E24AA?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev)
+[![Cloud Run](https://img.shields.io/badge/Google%20Cloud%20Run-4285F4?style=flat-square&logo=googlecloud&logoColor=white)](https://cloud.google.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](./LICENSE)
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20App-blue?style=for-the-badge)](https://synthinterview.xyz/)
-[![Google Cloud](https://img.shields.io/badge/Hosted%20on-Google%20Cloud-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com)
-[![Gemini Live API](https://img.shields.io/badge/Powered%20by-Gemini%20Live%20API-8E24AA?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+> **Demo Passcode:** `SYNTH2025`
 
-> Demo passcode: `SYNTH2025`
-
----
-
-## What it does
-
-- Conducts structured interviews through real-time voice conversation
-- Watches the candidate's screen to follow their code as they write it
-- Monitors session integrity and flags suspicious activity automatically
-- Provides a browser-based code editor with multi-language support
-- Generates a detailed scorecard covering code quality, approach, and communication
+</div>
 
 ---
 
-## Architecture
+## The Multimodal Interviewer
 
-![Architecture Diagram](./ARCHITECTURE_SIMPLE.png)
+SynthInterview replaces static prompts with a dynamic, multimodal interviewer that "sees" and "hears" the candidate just like a human would.
+
+| Feature | Description |
+|---|---|
+| **Real-time Voice** | Low-latency, natural dialogue powered by the Gemini 2.5 Flash Live API. |
+| **Vision-Aware** | Watches the Monaco editor in real-time to follow the candidate's coding logic and approach. |
+| **Active Proctoring** | Automatically flags tab switches, unauthorized AI tools, and behavioral anomalies. |
+| **Integrated IDE** | A seamless, in-browser Monaco editor environment supporting multiple languages. |
+| **AI Scorecards** | Deep-dive evaluation of technical proficiency, communication, and problem-solving. |
 
 ---
 
-## Project structure
+## Technical Stack
 
-This is a monorepo managed with Turborepo.
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15, React 19, Monaco Editor, Tailwind CSS, Framer Motion |
+| **Backend** | FastAPI, Python 3.12, Google GenAI SDK |
+| **AI Models** | Gemini 2.5 Flash Live (Multimodal) · Gemini 2.5 Flash (Processing) |
+| **Cloud** | Google Cloud Run, Firestore, Cloud Storage, Firebase Auth |
+| **Infrastructure** | Turborepo, Bun, Docker, uv |
+
+---
+
+## Project Structure
+
 ```
 SynthInterview/
 ├── apps/
-│   ├── web/          # Next.js frontend — candidate interface and recruiter dashboard
-│   └── api/          # FastAPI backend — AI orchestration and session state
+│   ├── web/          # Next.js frontend (Candidate & Recruiter portals)
+│   └── api/          # FastAPI backend (AI Orchestration & Vision processing)
 ├── packages/
 │   └── types/        # Shared TypeScript definitions
-├── cloudbuild.yaml   # Cloud Build CI/CD pipeline
-└── deploy.sh         # GCP deployment script
+├── cloudbuild.yaml   # Automated CI/CD for GCP
+└── deploy.sh         # One-click deployment script
 ```
 
 ---
 
-## Getting started
+## Getting Started
 
 ### Prerequisites
 
-| Tool   | Version | Install |
-| ------ | ------- | ------- |
-| Bun    | Latest  | [bun.sh](https://bun.sh/) |
-| Python | 3.10+   | [python.org](https://www.python.org/) |
-| uv     | Latest  | [astral.sh/uv](https://astral.sh/uv) |
+- [Bun](https://bun.sh/) (Package Manager)
+- [Python 3.10+](https://www.python.org/)
+- [uv](https://astral.sh/uv) (Python Package Manager)
 
-### 1. Clone the repository
+### 1. Installation
+
 ```bash
 git clone https://github.com/prayagtushar/SynthInterview.git
 cd SynthInterview
 ```
 
-### 2. Configure environment variables
+### 2. Configuration
 
-Copy the example files for each app and fill in the required values.
+Copy the example environment files and fill in your credentials from Google AI Studio and Firebase.
+
 ```bash
 cp apps/web/.env.example apps/web/.env
 cp apps/api/.env.example apps/api/.env
 ```
 
-| Variable | Description | Where to get it |
-| -------- | ----------- | --------------- |
-| `GEMINI_API_KEY` | Gemini API access | [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Backend Firebase auth | Firebase Console → Service Accounts |
-| `NEXT_PUBLIC_FIREBASE_*` | Frontend Firebase config | Firebase Console → Project Settings |
-| `GCS_BUCKET_NAME` | Proctoring artifact storage | Google Cloud Console → Cloud Storage |
-| `SMTP_*` | Session invite and scorecard emails | Optional |
+### 3. Local Development
 
-### 3. Install dependencies and run
+Start both the frontend and backend with a single command:
 
-**macOS / Linux**
 ```bash
-bun run setup:mac
-bun run dev
+# For macOS / Linux
+bun run setup:mac && bun run dev
+
+# For Windows
+bun run setup:windows && bun run dev
 ```
-
-**Windows (PowerShell)**
-```powershell
-bun run setup:windows
-bun run dev
-```
-
-Both the frontend and backend start with a single `bun run dev` command.
-
-### 4. Build for production
-```bash
-bun run build
-```
-
----
-
-## Live services
-
-| Service  | URL |
-| -------- | --- |
-| Frontend | https://synth-interview-web-1082839508369.asia-south1.run.app |
-| API      | https://synth-interview-api-1082839508369.asia-south1.run.app |
 
 ---
 
 ## Deployment
 
-The project includes automated deployment to Google Cloud Run.
+Continuous Deployment is configured via Google Cloud Build. Shifting to production is handled automatically on every push to `main`.
+
 ```bash
+# Manual deployment trigger
 ./deploy.sh
 ```
 
-`cloudbuild.yaml` configures a Cloud Build trigger that builds and deploys automatically on every push to `main`.
+| Service | Endpoint |
+|---|---|
+| **Frontend** | [synth-interview-web](https://synth-interview-web-1082839508369.asia-south1.run.app) |
+| **API** | [synth-interview-api](https://synth-interview-api-1082839508369.asia-south1.run.app) |
 
 ---
 
-## Tech stack
+<div align="center">
 
-| Layer       | Technology |
-| ----------- | ---------- |
-| Frontend    | Next.js 15, React 19, Monaco Editor |
-| Backend     | FastAPI, Python 3.12, Google GenAI SDK |
-| AI          | Gemini 2.5 Flash Live, Gemini 2.5 Flash |
-| Database    | Google Firestore |
-| Storage     | Google Cloud Storage |
-| Auth        | Firebase Auth |
-| Hosting     | Google Cloud Run (asia-south1) |
-| Tooling     | Turborepo, Bun, Docker, uv |
+Built for the **Gemini Live Agent Challenge** · MIT License
 
----
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+</div>
