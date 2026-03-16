@@ -17,6 +17,10 @@ SynthInterview conducts end-to-end technical coding interviews. Using multimodal
 
 ---
 
+## Architecture
+
+![Architecture Diagram](./ARCHITECTURE_SIMPLE.png)
+
 ## The Multimodal Interviewer
 
 SynthInterview replaces static prompts with a dynamic, multimodal interviewer that "sees" and "hears" the candidate just like a human would.
