@@ -1,7 +1,7 @@
 # GCP Cloud Build — builds and deploys to Cloud Run
 #
 # Prerequisite: Create secrets in Secret Manager for sensitive values:
-#   GEMINI_API_KEY, FIREBASE_SERVICE_ACCOUNT_JSON, GCS_BUCKET_NAME, RECRUITER_EMAIL, SMTP_PASS, etc.
+#   GEMINI_API_KEY, FIREBASE_SERVICE_ACCOUNT_JSON, GCS_BUCKET_NAME, SMTP_PASS, RECRUITER_EMAIL, etc.
 
 substitutions:
   _REGION: asia-south1
